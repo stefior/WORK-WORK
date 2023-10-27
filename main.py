@@ -195,6 +195,12 @@ class MainWindow(QMainWindow):
     def update_menu(self):
         self.menu.clear()
 
+        add_program_item = self.menu.addAction('Add program')
+        add_program_item.triggered.connect(self.add_program_mouse)
+        remove_program_item = self.menu.addAction('Remove program')
+        remove_program_item.triggered.connect(self.remove_program_mouse)
+        self.menu.addSeparator()
+
         idle_timeout_item = self.menu.addAction(
             f'Timeout: {self.idle_timeout}')
         idle_timeout_item.triggered.connect(self.set_idle_timeout)
@@ -206,12 +212,6 @@ class MainWindow(QMainWindow):
             f'Idle indicator border: {"on" if self.show_border_on_idle else "off"}'
         )
         toggle_idle_border_item.triggered.connect(self.toggle_idle_border)
-        self.menu.addSeparator()
-
-        add_program_item = self.menu.addAction('Add program')
-        add_program_item.triggered.connect(self.add_program_mouse)
-        remove_program_item = self.menu.addAction('Remove program')
-        remove_program_item.triggered.connect(self.remove_program_mouse)
         self.menu.addSeparator()
 
         resume_previous_time_item = self.menu.addAction("Resume previous time")
