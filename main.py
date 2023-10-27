@@ -108,7 +108,7 @@ class MainWindow(QMainWindow):
                 self.hours += 1
                 self.minutes = 0
                 self.seconds = 0
-        else:
+        elif self.windowTitle() != "WORK WORK":
             self.change_background_color("#F07070")
             self.setWindowTitle("BACK TO WORK")
 
