@@ -17,6 +17,7 @@ class MainWindow(QMainWindow):
         if 'OPTIONS' not in self.config.sections():
             self.config['OPTIONS'] = {}
             self.config['OPTIONS']['idle_timeout'] = '30'
+            self.config['OPTIONS']['previous_time'] = '00:00:00'
         if 'PROGRAMS' not in self.config.sections():
             self.config['PROGRAMS'] = {}
         self.idle_timeout = self.config['OPTIONS']['idle_timeout']
@@ -32,7 +33,6 @@ class MainWindow(QMainWindow):
         self.hours = 0
         self.minutes = 0
         self.seconds = 0
-        self.timer = 0
         timer = QTimer(self)
         timer.timeout.connect(self.update_time)
         timer.start(1000)
@@ -115,9 +115,9 @@ class MainWindow(QMainWindow):
             # changes display back the next timer tick for readability
             self.label.setText(' 404')
         elif not self.wait_to_add_program and not self.wait_to_remove_program:
-            self.update_display()
+            self.update_label()
 
-    def update_display(self):
+    def update_label(self):
         hh = self.hours if self.hours > 9 else '0' + str(self.hours)
         mm = self.minutes if self.minutes > 9 else '0' + str(self.minutes)
         ss = self.seconds if self.seconds > 9 else '0' + str(self.seconds)
@@ -190,11 +190,15 @@ class MainWindow(QMainWindow):
         self.label.setText('rem prog')
 
     def resume_previous_time(self):
-        pass
+        previous_time = self.config['OPTIONS']['previous_time'].split(':')
+        self.hours = int(previous_time[0])
+        self.minutes = int(previous_time[1])
+        self.seconds = int(previous_time[2])
+        self.update_label()
 
     def checkbox_was_toggled(self, checked):
         self.hide_time = checked
-        self.update_display()
+        self.update_label()
 
     def eventFilter(self, source, event):
         if event.type() == QEvent.WindowDeactivate:
@@ -204,13 +208,13 @@ class MainWindow(QMainWindow):
                 pass
             elif self.wait_to_add_program == True:
                 self.tracked_programs[last_clicked.exe()] = last_clicked.name()
-                self.update_display()
+                self.update_label()
                 self.wait_to_add_program = False
             elif self.wait_to_remove_program == True:
                 if last_clicked.exe() in self.tracked_programs:
                     self.config.remove_option('PROGRAMS',
                                               last_clicked.exe())
-                    self.update_display()
+                    self.update_label()
                 else:
                     self.label.setText('404')
                 self.wait_to_remove_program = False
@@ -219,6 +223,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         with open('settings.ini', 'w') as configfile:
+            self.config['OPTIONS']['previous_time'] = self.current_time
             self.config.write(configfile)
 
 app = QApplication([])
