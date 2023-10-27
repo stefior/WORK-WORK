@@ -4,7 +4,8 @@ import win32process
 import configparser
 from ctypes import Structure, windll, c_uint, sizeof, byref
 from PyQt5.QtCore import QSize, Qt, QEvent, QTimer
-from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLCDNumber, QCheckBox, QHBoxLayout, QMenu, QInputDialog
+from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QCheckBox, QHBoxLayout, QMenu, QInputDialog
+from PyQt5.QtGui import QFont, QFontDatabase
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -22,10 +23,10 @@ class MainWindow(QMainWindow):
         self.tracked_programs = self.config['PROGRAMS']
 
         self.wait_to_add_program = False
-        self.wait_to_subtract_program = False
+        self.wait_to_remove_program = False
 
         self.setWindowTitle("WORK WORK")
-        self.setFixedSize(QSize(188, 45))
+        self.setFixedSize(QSize(205, 39))
         self.setObjectName("MainWindow")
         self.change_background_color("#F07070")
         self.hours = 0
@@ -36,28 +37,29 @@ class MainWindow(QMainWindow):
         timer.timeout.connect(self.update_time)
         timer.start(1000)
 
-        self.number = QLCDNumber(8)
         self.current_time = '00:00:00'
-        self.number.display(self.current_time)
-        self.number.setSegmentStyle(QLCDNumber.Flat)
-        self.setMouseTracking(True)
-
-        checkbox = QCheckBox("")
-        checkbox.setCheckable(True)
-        checkbox.clicked.connect(self.checkbox_was_toggled)
+        self.label = QLabel(self.current_time, self)
+        self.label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        digital_font_id = QFontDatabase.addApplicationFont("digital-7-mono.ttf")
+        font_families = QFontDatabase.applicationFontFamilies(digital_font_id)
+        self.label.setFont(QFont(font_families[0], 24))
 
         self.menu = QMenu()
         self.menu.aboutToShow.connect(self.update_menu)
         menu_button = QPushButton('MENU')
         menu_button.setMenu(self.menu)
 
+        checkbox = QCheckBox("")
+        checkbox.setCheckable(True)
+        checkbox.clicked.connect(self.checkbox_was_toggled)
+
         layout = QHBoxLayout()
-        layout.addWidget(self.number)
+        layout.setAlignment(Qt.AlignRight)
+        layout.addWidget(self.label)
         layout.addWidget(menu_button)
         layout.addWidget(checkbox)
 
         self.container = QWidget()
-        self.container.setMouseTracking(True)
         self.container.installEventFilter(self)
         self.container.setLayout(layout)
 
@@ -77,10 +79,6 @@ class MainWindow(QMainWindow):
             
             QPushButton::menu-indicator {{
                 width: 0;
-            }}
-            
-            QLCDNumber {{
-                border: none;
             }}
             """)
 
@@ -112,10 +110,10 @@ class MainWindow(QMainWindow):
             self.change_background_color("#F07070")
             self.setWindowTitle("BACK TO WORK")
 
-        if self.number.value() == 404:
-            # changes display back the next timer tick since the value will no longer be a number
-            self.number.display('4O4')
-        elif not self.wait_to_add_program and not self.wait_to_subtract_program:
+        if self.label.text() == '404':
+            # changes display back the next timer tick for readability
+            self.label.setText(' 404')
+        elif not self.wait_to_add_program and not self.wait_to_remove_program:
             self.update_display()
 
     def update_display(self):
@@ -123,7 +121,7 @@ class MainWindow(QMainWindow):
         mm = self.minutes if self.minutes > 9 else '0' + str(self.minutes)
         ss = self.seconds if self.seconds > 9 else '0' + str(self.seconds)
         self.current_time = f'{hh}:{mm}:{ss}'
-        self.number.display(self.current_time)
+        self.label.setText(self.current_time)
 
     def update_menu(self):
         self.menu.clear()
@@ -134,8 +132,8 @@ class MainWindow(QMainWindow):
 
         add_program_item = self.menu.addAction('Add program')
         add_program_item.triggered.connect(self.add_program)
-        remove_program_item = self.menu.addAction('Subtract program')
-        remove_program_item.triggered.connect(self.subtract_program)
+        remove_program_item = self.menu.addAction('Remove program')
+        remove_program_item.triggered.connect(self.remove_program)
         self.menu.addSeparator()
 
         resume_previous_time_item = self.menu.addAction("Resume previous time")
@@ -179,12 +177,12 @@ class MainWindow(QMainWindow):
     def add_program(self):
         self.wait_to_add_program = True
         # click then handled by eventFilter
-        self.number.display('add prog')
+        self.label.setText('add prog')
 
-    def subtract_program(self):
-        self.wait_to_subtract_program = True
+    def remove_program(self):
+        self.wait_to_remove_program = True
         # click then handled by eventFilter
-        self.number.display('sub prog')
+        self.label.setText('rem prog')
 
     def resume_previous_time(self):
         pass
@@ -201,16 +199,16 @@ class MainWindow(QMainWindow):
                 pass
             elif self.wait_to_add_program == True:
                 self.tracked_programs[last_clicked.exe()] = last_clicked.name()
-                self.number.display(self.current_time)
+                self.label.setText(self.current_time)
                 self.wait_to_add_program = False
-            elif self.wait_to_subtract_program == True:
+            elif self.wait_to_remove_program == True:
                 if last_clicked.exe() in self.tracked_programs:
                     self.config.remove_option('PROGRAMS',
                                               last_clicked.exe())
-                    self.number.display(self.current_time)
+                    self.label.setText(self.current_time)
                 else:
-                    self.number.display(404)
-                self.wait_to_subtract_program = False
+                    self.label.setText('404')
+                self.wait_to_remove_program = False
 
         return super().eventFilter(source, event)
 
