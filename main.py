@@ -6,9 +6,45 @@ import keyboard
 import simpleaudio
 from time import sleep
 from ctypes import Structure, windll, c_uint, sizeof, byref
-from PyQt5.QtCore import QSize, Qt, QEvent, QTimer
+from PyQt5.QtCore import QSize, Qt, QEvent, QTimer, QRect
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QCheckBox, QHBoxLayout, QMenu, QInputDialog
-from PyQt5.QtGui import QFont, QFontDatabase
+from PyQt5.QtGui import QFont, QFontDatabase, QPainter, QColor, QPen
+
+
+class BorderWindow(QWidget):
+
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+        # Get combined screen geometry
+        desktop = QApplication.desktop()
+        rect = desktop.screenGeometry(
+            0)  # Start with the geometry of the first screen
+        for i in range(1, desktop.screenCount()):
+            rect = rect.united(desktop.screenGeometry(
+                i))  # Union the geometries of all screens
+
+        # if all monitors aren't aligned it doesn't cover all perimeters
+        # but it's good enough to fulfill it's purpose
+        self.setGeometry(rect)
+
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+                            | Qt.Tool)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+
+        self.show()
+
+    def paintEvent(self, event):
+        qp = QPainter()
+        qp.begin(self)
+        self.drawBorder(qp)
+        qp.end()
+
+    def drawBorder(self, qp):
+        qp.setPen(QPen(QColor(240, 112, 112), 8))  # Set pen color and width
+        qp.drawRect(0, 0, self.width(), self.height())  # Draw border rectangle
 
 
 class MainWindow(QMainWindow):
@@ -16,7 +52,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        # delimeters set to only "=" becuase ":" is used in the path
+        # delimeters set to only "=" becuase ":" is used for saving the path of tracked programs
         self.config = configparser.ConfigParser(delimiters=('=', ))
         self.config.read('settings.ini')
         if 'OPTIONS' not in self.config.sections():
@@ -25,12 +61,16 @@ class MainWindow(QMainWindow):
             self.config['OPTIONS']['previous_time'] = '00:00:00'
             self.config['OPTIONS']['add_program_hotkey'] = "ctrl+win+alt+a"
             self.config['OPTIONS']['remove_program_hotkey'] = "ctrl+win+alt+r"
-            self.config['OPTIONS']['play_alert_on_idle'] = "False"
+            self.config['OPTIONS']['play_sound_on_idle'] = "False"
+            self.config['OPTIONS']['show_border_on_idle'] = "False"
         if 'PROGRAMS' not in self.config.sections():
             self.config['PROGRAMS'] = {}
+
         self.idle_timeout = self.config['OPTIONS']['idle_timeout']
-        self.play_alert_on_idle = True if self.config['OPTIONS'][
-            'play_alert_on_idle'].lower() == "true" else False
+        self.play_sound_on_idle = True if self.config['OPTIONS'][
+            'play_sound_on_idle'].lower() == "true" else False
+        self.show_border_on_idle = True if self.config['OPTIONS'][
+            'show_border_on_idle'].lower() == "true" else False
         self.tracked_programs = self.config['PROGRAMS']
 
         keyboard.add_hotkey(self.config['OPTIONS']['add_program_hotkey'],
@@ -39,6 +79,8 @@ class MainWindow(QMainWindow):
                             self.remove_program_keyboard)
 
         self.seconds_since_idle_timeout = 0
+        self.border_window = BorderWindow()
+        self.border_window.hide()
         self.wait_to_add_program = False
         self.wait_to_remove_program = False
 
@@ -118,8 +160,11 @@ class MainWindow(QMainWindow):
 
         if active_program_path in self.tracked_programs and self.is_idle(
         ) == False:
+            if self.border_window.isVisible():
+                self.border_window.hide()
             self.change_background_color("#B0FFFF")
             self.setWindowTitle("KEEP WORKING")
+
             if self.seconds < 59:
                 self.seconds += 1
             elif self.minutes < 59:
@@ -153,9 +198,14 @@ class MainWindow(QMainWindow):
         idle_timeout_item = self.menu.addAction(
             f'Timeout: {self.idle_timeout}')
         idle_timeout_item.triggered.connect(self.set_idle_timeout)
-        toggle_alert_sound_item = self.menu.addAction(
-            f'Alert sound: {"on" if self.play_alert_on_idle else "off"}')
-        toggle_alert_sound_item.triggered.connect(self.toggle_alert_sound)
+        toggle_idle_sound_item = self.menu.addAction(
+            f'Idle indicator sound: {"on" if self.play_sound_on_idle else "off"}'
+        )
+        toggle_idle_sound_item.triggered.connect(self.toggle_idle_sound)
+        toggle_idle_border_item = self.menu.addAction(
+            f'Idle indicator border: {"on" if self.show_border_on_idle else "off"}'
+        )
+        toggle_idle_border_item.triggered.connect(self.toggle_idle_border)
         self.menu.addSeparator()
 
         add_program_item = self.menu.addAction('Add program')
@@ -166,6 +216,16 @@ class MainWindow(QMainWindow):
 
         resume_previous_time_item = self.menu.addAction("Resume previous time")
         resume_previous_time_item.triggered.connect(self.resume_previous_time)
+
+    def toggle_idle_border(self):
+        if self.show_border_on_idle:
+            self.config['OPTIONS']['show_border_on_idle'] = 'False'
+            self.show_border_on_idle = False
+            self.label.setText('brdr off')
+        else:
+            self.config['OPTIONS']['show_border_on_idle'] = 'True'
+            self.show_border_on_idle = True
+            self.label.setText('brdr on')
 
     def is_idle(self):
         # http://stackoverflow.com/questions/911856/detecting-idle-time-in-python
@@ -185,10 +245,14 @@ class MainWindow(QMainWindow):
         # -----------------------------------------------------------------------
 
         if get_idle_duration() >= int(self.idle_timeout):
-            if self.play_alert_on_idle and self.seconds_since_idle_timeout == 0:
+            if self.show_border_on_idle:
+                self.border_window.show()
+
+            if self.play_sound_on_idle and self.seconds_since_idle_timeout == 0:
                 wave_obj = simpleaudio.WaveObject.from_wave_file("alert.wav")
                 wave_obj.play()
                 self.seconds_since_idle_timeout += 1
+
             return True
         else:
             self.seconds_since_idle_timeout = 0
@@ -245,15 +309,15 @@ class MainWindow(QMainWindow):
         self.seconds = int(previous_time[2])
         self.update_label()
 
-    def toggle_alert_sound(self):
-        if self.play_alert_on_idle:
-            self.config['OPTIONS']['play_alert_on_idle'] = 'False'
-            self.play_alert_on_idle = False
-            self.label.setText('alrt off')
+    def toggle_idle_sound(self):
+        if self.play_sound_on_idle:
+            self.config['OPTIONS']['play_sound_on_idle'] = 'False'
+            self.play_sound_on_idle = False
+            self.label.setText('snd off')
         else:
-            self.config['OPTIONS']['play_alert_on_idle'] = 'True'
-            self.play_alert_on_idle = True
-            self.label.setText('alrt on')
+            self.config['OPTIONS']['play_sound_on_idle'] = 'True'
+            self.play_sound_on_idle = True
+            self.label.setText('snd on')
 
     def checkbox_was_toggled(self, checked):
         self.hide_time = checked
