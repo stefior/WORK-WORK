@@ -1,6 +1,7 @@
 import psutil
 import win32gui
 import win32process
+import configparser
 from ctypes import Structure, windll, c_uint, sizeof, byref
 from PyQt5.QtCore import QSize, Qt, QEvent, QTimer
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLCDNumber, QCheckBox, QHBoxLayout, QMenu, QInputDialog
@@ -8,6 +9,20 @@ from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLC
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+
+        # delimeters set to only "=" becuase ":" is used in the path
+        self.config = configparser.ConfigParser(delimiters=('=',))
+        self.config.read('settings.ini')
+        if 'OPTIONS' not in self.config.sections():
+            self.config['OPTIONS'] = {}
+            self.config['OPTIONS']['idle_timeout'] = '30'
+        if 'PROGRAMS' not in self.config.sections():
+            self.config['PROGRAMS'] = {}
+        self.idle_timeout = self.config['OPTIONS']['idle_timeout']
+        self.tracked_programs = self.config['PROGRAMS']
+
+        self.wait_to_add_program = False
+        self.wait_to_subtract_program = False
 
         self.setWindowTitle("WORK WORK")
         self.setFixedSize(QSize(188, 45))
@@ -20,12 +35,6 @@ class MainWindow(QMainWindow):
         timer = QTimer(self)
         timer.timeout.connect(self.update_time)
         timer.start(1000)
-
-        self.idle_timeout = 10
-        self.tracked_programs = set()
-        self.active_program_path = None
-        self.wait_to_add_program = False
-        self.wait_to_subtract_program = False
 
         self.number = QLCDNumber(8)
         self.current_time = '00:00:00'
@@ -74,20 +83,20 @@ class MainWindow(QMainWindow):
                 border: none;
             }}
             """)
-    def get_active_program_path(self):
+
+    def get_active_program(self):
         try:
             active_window_handle = win32gui.GetForegroundWindow()
             _, process_id = win32process.GetWindowThreadProcessId(active_window_handle)
-            process = psutil.Process(process_id)
-            # using the path instead of the process name because some programs have the same exe name as others
-            return process.exe()
+            program = psutil.Process(process_id)
+            return program
         except:
             return None
 
     def update_time(self):
-        self.active_program_path = self.get_active_program_path()
+        active_program_path = self.get_active_program().exe()
 
-        if self.active_program_path in self.tracked_programs and self.is_idle() == False:
+        if active_program_path in self.tracked_programs and self.is_idle() == False:
             self.change_background_color("#B0FFFF")
             self.setWindowTitle("KEEP WORKING")
             if self.seconds < 59:
@@ -148,7 +157,7 @@ class MainWindow(QMainWindow):
             return millis / 1000
         # -----------------------------------------------------------------------
 
-        if get_idle_duration() >= self.idle_timeout:
+        if get_idle_duration() >= int(self.idle_timeout):
             return True
         else:
             return False
@@ -159,7 +168,7 @@ class MainWindow(QMainWindow):
         dialog_box.setWindowFlags(dialog_box.windowFlags() & ~Qt.WindowContextHelpButtonHint | Qt.WindowCloseButtonHint)
         dialog_box.setInputMode(QInputDialog.IntInput)
         dialog_box.setIntRange(1, 99999)
-        dialog_box.setIntValue(self.idle_timeout)
+        dialog_box.setIntValue(int(self.idle_timeout))
         dialog_box.setLabelText('Ender new idle timeout:')
         dialog_box.setWindowTitle('Idle Setting')
 
@@ -186,23 +195,28 @@ class MainWindow(QMainWindow):
 
     def eventFilter(self, source, event):
         if event.type() == QEvent.WindowDeactivate:
-            last_clicked = self.get_active_program_path()
+            last_clicked = self.get_active_program()
 
             if last_clicked == None:
                 pass
             elif self.wait_to_add_program == True:
-                self.tracked_programs.add(last_clicked)
+                self.tracked_programs[last_clicked.exe()] = last_clicked.name()
                 self.number.display(self.current_time)
                 self.wait_to_add_program = False
             elif self.wait_to_subtract_program == True:
-                if last_clicked in self.tracked_programs:
-                    self.tracked_programs.remove(last_clicked)
+                if last_clicked.exe() in self.tracked_programs:
+                    self.config.remove_option('PROGRAMS',
+                                              last_clicked.exe())
                     self.number.display(self.current_time)
                 else:
                     self.number.display(404)
                 self.wait_to_subtract_program = False
 
         return super().eventFilter(source, event)
+
+    def closeEvent(self, event):
+        with open('settings.ini', 'w') as configfile:
+            self.config.write(configfile)
 
 app = QApplication([])
 window = MainWindow()
