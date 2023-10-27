@@ -36,7 +36,6 @@ class MainWindow(QMainWindow):
         checkbox = QCheckBox("")
         checkbox.setCheckable(True)
         checkbox.clicked.connect(self.checkbox_was_toggled)
-        # checkbox.setEnabled(False)
 
         self.menu = QMenu()
         self.menu.aboutToShow.connect(self.update_menu)
@@ -87,7 +86,6 @@ class MainWindow(QMainWindow):
 
     def update_time(self):
         self.active_program_path = self.get_active_program_path()
-        print(self.active_program_path)
 
         if self.active_program_path in self.tracked_programs and self.is_idle() == False:
             self.change_background_color("#B0FFFF")
@@ -184,7 +182,7 @@ class MainWindow(QMainWindow):
 
     def checkbox_was_toggled(self, checked):
         self.box_is_checked = checked
-        self.setWindowTitle('on') if checked else self.setWindowTitle('off') ##########
+        # TODO: hide timer digits if checked
 
     def eventFilter(self, source, event):
         if event.type() == QEvent.WindowDeactivate:
