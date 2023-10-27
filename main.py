@@ -3,17 +3,21 @@ import win32gui
 import win32process
 import configparser
 import keyboard
+import simpleaudio
+from time import sleep
 from ctypes import Structure, windll, c_uint, sizeof, byref
 from PyQt5.QtCore import QSize, Qt, QEvent, QTimer
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QCheckBox, QHBoxLayout, QMenu, QInputDialog
 from PyQt5.QtGui import QFont, QFontDatabase
 
+
 class MainWindow(QMainWindow):
+
     def __init__(self):
         super().__init__()
 
         # delimeters set to only "=" becuase ":" is used in the path
-        self.config = configparser.ConfigParser(delimiters=('=',))
+        self.config = configparser.ConfigParser(delimiters=('=', ))
         self.config.read('settings.ini')
         if 'OPTIONS' not in self.config.sections():
             self.config['OPTIONS'] = {}
@@ -21,14 +25,20 @@ class MainWindow(QMainWindow):
             self.config['OPTIONS']['previous_time'] = '00:00:00'
             self.config['OPTIONS']['add_program_hotkey'] = "ctrl+win+alt+a"
             self.config['OPTIONS']['remove_program_hotkey'] = "ctrl+win+alt+r"
+            self.config['OPTIONS']['play_alert_on_idle'] = "False"
         if 'PROGRAMS' not in self.config.sections():
             self.config['PROGRAMS'] = {}
         self.idle_timeout = self.config['OPTIONS']['idle_timeout']
+        self.play_alert_on_idle = True if self.config['OPTIONS'][
+            'play_alert_on_idle'].lower() == "true" else False
         self.tracked_programs = self.config['PROGRAMS']
 
-        keyboard.add_hotkey(self.config['OPTIONS']['add_program_hotkey'], self.add_program_keyboard)
-        keyboard.add_hotkey(self.config['OPTIONS']['remove_program_hotkey'], self.remove_program_keyboard)
+        keyboard.add_hotkey(self.config['OPTIONS']['add_program_hotkey'],
+                            self.add_program_keyboard)
+        keyboard.add_hotkey(self.config['OPTIONS']['remove_program_hotkey'],
+                            self.remove_program_keyboard)
 
+        self.seconds_since_idle_timeout = 0
         self.wait_to_add_program = False
         self.wait_to_remove_program = False
 
@@ -46,7 +56,8 @@ class MainWindow(QMainWindow):
         self.current_time = '00:00:00'
         self.label = QLabel(self.current_time, self)
         self.label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        digital_font_id = QFontDatabase.addApplicationFont("digital-7-mono.ttf")
+        digital_font_id = QFontDatabase.addApplicationFont(
+            "digital-7-mono.ttf")
         font_families = QFontDatabase.applicationFontFamilies(digital_font_id)
         self.label.setFont(QFont(font_families[0], 24))
 
@@ -92,7 +103,8 @@ class MainWindow(QMainWindow):
     def get_active_program(self):
         try:
             active_window_handle = win32gui.GetForegroundWindow()
-            _, process_id = win32process.GetWindowThreadProcessId(active_window_handle)
+            _, process_id = win32process.GetWindowThreadProcessId(
+                active_window_handle)
             program = psutil.Process(process_id)
             return program
         except:
@@ -101,7 +113,11 @@ class MainWindow(QMainWindow):
     def update_time(self):
         active_program_path = self.get_active_program().exe()
 
-        if active_program_path in self.tracked_programs and self.is_idle() == False:
+        if ':' not in self.label.text():
+            sleep(.5)
+
+        if active_program_path in self.tracked_programs and self.is_idle(
+        ) == False:
             self.change_background_color("#B0FFFF")
             self.setWindowTitle("KEEP WORKING")
             if self.seconds < 59:
@@ -134,8 +150,12 @@ class MainWindow(QMainWindow):
     def update_menu(self):
         self.menu.clear()
 
-        idle_timeout_item = self.menu.addAction(f'Timeout: {self.idle_timeout}')
+        idle_timeout_item = self.menu.addAction(
+            f'Timeout: {self.idle_timeout}')
         idle_timeout_item.triggered.connect(self.set_idle_timeout)
+        toggle_alert_sound_item = self.menu.addAction(
+            f'Alert sound: {"on" if self.play_alert_on_idle else "off"}')
+        toggle_alert_sound_item.triggered.connect(self.toggle_alert_sound)
         self.menu.addSeparator()
 
         add_program_item = self.menu.addAction('Add program')
@@ -161,17 +181,25 @@ class MainWindow(QMainWindow):
             windll.user32.GetLastInputInfo(byref(lastInputInfo))
             millis = windll.kernel32.GetTickCount() - lastInputInfo.dwTime
             return millis / 1000
+
         # -----------------------------------------------------------------------
 
         if get_idle_duration() >= int(self.idle_timeout):
+            if self.play_alert_on_idle and self.seconds_since_idle_timeout == 0:
+                wave_obj = simpleaudio.WaveObject.from_wave_file("alert.wav")
+                wave_obj.play()
+                self.seconds_since_idle_timeout += 1
             return True
         else:
+            self.seconds_since_idle_timeout = 0
             return False
 
     def set_idle_timeout(self):
         dialog_box = QInputDialog(self)
         # remove question mark from the title bar
-        dialog_box.setWindowFlags(dialog_box.windowFlags() & ~Qt.WindowContextHelpButtonHint | Qt.WindowCloseButtonHint)
+        dialog_box.setWindowFlags(dialog_box.windowFlags()
+                                  & ~Qt.WindowContextHelpButtonHint
+                                  | Qt.WindowCloseButtonHint)
         dialog_box.setInputMode(QInputDialog.IntInput)
         dialog_box.setIntRange(1, 99999)
         dialog_box.setIntValue(int(self.idle_timeout))
@@ -186,7 +214,8 @@ class MainWindow(QMainWindow):
         current_program = self.get_active_program()
 
         if current_program != None:
-            self.tracked_programs[current_program.exe()] = current_program.name()
+            self.tracked_programs[
+                current_program.exe()] = current_program.name()
             self.label.setText('added')
 
     def remove_program_keyboard(self):
@@ -216,6 +245,16 @@ class MainWindow(QMainWindow):
         self.seconds = int(previous_time[2])
         self.update_label()
 
+    def toggle_alert_sound(self):
+        if self.play_alert_on_idle:
+            self.config['OPTIONS']['play_alert_on_idle'] = 'False'
+            self.play_alert_on_idle = False
+            self.label.setText('alrt off')
+        else:
+            self.config['OPTIONS']['play_alert_on_idle'] = 'True'
+            self.play_alert_on_idle = True
+            self.label.setText('alrt on')
+
     def checkbox_was_toggled(self, checked):
         self.hide_time = checked
         self.update_label()
@@ -232,8 +271,7 @@ class MainWindow(QMainWindow):
                 self.wait_to_add_program = False
             elif self.wait_to_remove_program == True:
                 if last_clicked.exe() in self.tracked_programs:
-                    self.config.remove_option('PROGRAMS',
-                                              last_clicked.exe())
+                    self.config.remove_option('PROGRAMS', last_clicked.exe())
                     self.label.setText('removed')
                 self.wait_to_remove_program = False
 
@@ -243,6 +281,7 @@ class MainWindow(QMainWindow):
         with open('settings.ini', 'w') as configfile:
             self.config['OPTIONS']['previous_time'] = self.current_time
             self.config.write(configfile)
+
 
 app = QApplication([])
 window = MainWindow()
