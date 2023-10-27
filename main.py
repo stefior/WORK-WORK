@@ -1,4 +1,6 @@
+import psutil
 import win32gui
+import win32process
 from ctypes import Structure, windll, c_uint, sizeof, byref
 from PyQt5.QtCore import QSize, Qt, QEvent, QTimer
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLCDNumber, QCheckBox, QHBoxLayout, QMenu, QInputDialog
@@ -21,8 +23,7 @@ class MainWindow(QMainWindow):
 
         self.idle_timeout = 10
         self.tracked_programs = set()
-        self.current_window = None
-        self.last_clicked = None
+        self.active_program_path = None
         self.wait_to_add_program = False
         self.wait_to_subtract_program = False
 
@@ -74,10 +75,21 @@ class MainWindow(QMainWindow):
                 border: none;
             }}
             """)
+    def get_active_program_path(self):
+        try:
+            active_window_handle = win32gui.GetForegroundWindow()
+            _, process_id = win32process.GetWindowThreadProcessId(active_window_handle)
+            process = psutil.Process(process_id)
+            # using the path instead of the process name because some programs have the same exe name as others
+            return process.exe()
+        except:
+            return None
 
     def update_time(self):
-        self.current_window = win32gui.GetForegroundWindow()
-        if self.current_window in self.tracked_programs and self.is_idle() == False:
+        self.active_program_path = self.get_active_program_path()
+        print(self.active_program_path)
+
+        if self.active_program_path in self.tracked_programs and self.is_idle() == False:
             self.change_background_color("#B0FFFF")
             if self.seconds < 59:
                 self.seconds += 1
@@ -146,7 +158,7 @@ class MainWindow(QMainWindow):
         # remove question mark from the title bar
         dialog_box.setWindowFlags(dialog_box.windowFlags() & ~Qt.WindowContextHelpButtonHint | Qt.WindowCloseButtonHint)
         dialog_box.setInputMode(QInputDialog.IntInput)
-        dialog_box.setIntRange(1, 99999999)
+        dialog_box.setIntRange(1, 99999)
         dialog_box.setIntValue(self.idle_timeout)
         dialog_box.setLabelText('Ender new idle timeout:')
         dialog_box.setWindowTitle('Idle Setting')
@@ -157,10 +169,12 @@ class MainWindow(QMainWindow):
 
     def add_program(self):
         self.wait_to_add_program = True
+        # click then handled by eventFilter
         self.number.display('add prog')
 
     def subtract_program(self):
         self.wait_to_subtract_program = True
+        # click then handled by eventFilter
         self.number.display('sub prog')
 
     def resume_previous_time(self):
@@ -172,15 +186,17 @@ class MainWindow(QMainWindow):
 
     def eventFilter(self, source, event):
         if event.type() == QEvent.WindowDeactivate:
-            self.last_clicked = win32gui.GetForegroundWindow()
+            last_clicked = self.get_active_program_path()
 
-            if self.wait_to_add_program == True:
-                self.tracked_programs.add(self.last_clicked)
+            if last_clicked == None:
+                pass
+            elif self.wait_to_add_program == True:
+                self.tracked_programs.add(last_clicked)
                 self.number.display(self.current_time)
                 self.wait_to_add_program = False
             elif self.wait_to_subtract_program == True:
-                if self.last_clicked in self.tracked_programs:
-                    self.tracked_programs.remove(self.last_clicked)
+                if last_clicked in self.tracked_programs:
+                    self.tracked_programs.remove(last_clicked)
                     self.number.display(self.current_time)
                 else:
                     self.number.display(404)
