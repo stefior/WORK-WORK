@@ -52,6 +52,7 @@ class MainWindow(QMainWindow):
         checkbox = QCheckBox("")
         checkbox.setCheckable(True)
         checkbox.clicked.connect(self.checkbox_was_toggled)
+        self.hide_time = False
 
         layout = QHBoxLayout()
         layout.setAlignment(Qt.AlignRight)
@@ -121,7 +122,11 @@ class MainWindow(QMainWindow):
         mm = self.minutes if self.minutes > 9 else '0' + str(self.minutes)
         ss = self.seconds if self.seconds > 9 else '0' + str(self.seconds)
         self.current_time = f'{hh}:{mm}:{ss}'
-        self.label.setText(self.current_time)
+
+        if self.hide_time:
+            self.label.setText("--:--:--")
+        else:
+            self.label.setText(self.current_time)
 
     def update_menu(self):
         self.menu.clear()
@@ -188,8 +193,8 @@ class MainWindow(QMainWindow):
         pass
 
     def checkbox_was_toggled(self, checked):
-        self.box_is_checked = checked
-        # TODO: hide timer digits if checked
+        self.hide_time = checked
+        self.update_display()
 
     def eventFilter(self, source, event):
         if event.type() == QEvent.WindowDeactivate:
@@ -199,13 +204,13 @@ class MainWindow(QMainWindow):
                 pass
             elif self.wait_to_add_program == True:
                 self.tracked_programs[last_clicked.exe()] = last_clicked.name()
-                self.label.setText(self.current_time)
+                self.update_display()
                 self.wait_to_add_program = False
             elif self.wait_to_remove_program == True:
                 if last_clicked.exe() in self.tracked_programs:
                     self.config.remove_option('PROGRAMS',
                                               last_clicked.exe())
-                    self.label.setText(self.current_time)
+                    self.update_display()
                 else:
                     self.label.setText('404')
                 self.wait_to_remove_program = False
