@@ -91,6 +91,7 @@ class MainWindow(QMainWindow):
 
         if self.active_program_path in self.tracked_programs and self.is_idle() == False:
             self.change_background_color("#B0FFFF")
+            self.setWindowTitle("KEEP WORKING")
             if self.seconds < 59:
                 self.seconds += 1
             elif self.minutes < 59:
@@ -102,6 +103,7 @@ class MainWindow(QMainWindow):
                 self.seconds = 0
         else:
             self.change_background_color("#F07070")
+            self.setWindowTitle("BACK TO WORK")
 
         if self.number.value() == 404:
             # changes display back the next timer tick since the value will no longer be a number
