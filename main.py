@@ -2,6 +2,7 @@ import psutil
 import win32gui
 import win32process
 import configparser
+import keyboard
 from ctypes import Structure, windll, c_uint, sizeof, byref
 from PyQt5.QtCore import QSize, Qt, QEvent, QTimer
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QCheckBox, QHBoxLayout, QMenu, QInputDialog
@@ -18,10 +19,15 @@ class MainWindow(QMainWindow):
             self.config['OPTIONS'] = {}
             self.config['OPTIONS']['idle_timeout'] = '30'
             self.config['OPTIONS']['previous_time'] = '00:00:00'
+            self.config['OPTIONS']['add_program_hotkey'] = "ctrl+win+alt+a"
+            self.config['OPTIONS']['remove_program_hotkey'] = "ctrl+win+alt+r"
         if 'PROGRAMS' not in self.config.sections():
             self.config['PROGRAMS'] = {}
         self.idle_timeout = self.config['OPTIONS']['idle_timeout']
         self.tracked_programs = self.config['PROGRAMS']
+
+        keyboard.add_hotkey(self.config['OPTIONS']['add_program_hotkey'], self.add_program_keyboard)
+        keyboard.add_hotkey(self.config['OPTIONS']['remove_program_hotkey'], self.remove_program_keyboard)
 
         self.wait_to_add_program = False
         self.wait_to_remove_program = False
@@ -111,10 +117,7 @@ class MainWindow(QMainWindow):
             self.change_background_color("#F07070")
             self.setWindowTitle("BACK TO WORK")
 
-        if self.label.text() == '404':
-            # changes display back the next timer tick for readability
-            self.label.setText(' 404')
-        elif not self.wait_to_add_program and not self.wait_to_remove_program:
+        if not self.wait_to_add_program and not self.wait_to_remove_program:
             self.update_label()
 
     def update_label(self):
@@ -136,9 +139,9 @@ class MainWindow(QMainWindow):
         self.menu.addSeparator()
 
         add_program_item = self.menu.addAction('Add program')
-        add_program_item.triggered.connect(self.add_program)
+        add_program_item.triggered.connect(self.add_program_mouse)
         remove_program_item = self.menu.addAction('Remove program')
-        remove_program_item.triggered.connect(self.remove_program)
+        remove_program_item.triggered.connect(self.remove_program_mouse)
         self.menu.addSeparator()
 
         resume_previous_time_item = self.menu.addAction("Resume previous time")
@@ -179,12 +182,29 @@ class MainWindow(QMainWindow):
             new_timeout = dialog_box.intValue()
             self.idle_timeout = new_timeout
 
-    def add_program(self):
+    def add_program_keyboard(self):
+        current_program = self.get_active_program()
+
+        if current_program != None:
+            self.tracked_programs[current_program.exe()] = current_program.name()
+            self.label.setText('added')
+
+    def remove_program_keyboard(self):
+        current_program = self.get_active_program()
+
+        if current_program != None:
+            if current_program.exe() in self.tracked_programs:
+                self.config.remove_option('PROGRAMS', current_program.exe())
+                self.label.setText('removed')
+            else:
+                self.label.setText('404')
+
+    def add_program_mouse(self):
         self.wait_to_add_program = True
         # click then handled by eventFilter
         self.label.setText('add prog')
 
-    def remove_program(self):
+    def remove_program_mouse(self):
         self.wait_to_remove_program = True
         # click then handled by eventFilter
         self.label.setText('rem prog')
@@ -208,15 +228,13 @@ class MainWindow(QMainWindow):
                 pass
             elif self.wait_to_add_program == True:
                 self.tracked_programs[last_clicked.exe()] = last_clicked.name()
-                self.update_label()
+                self.label.setText('added')
                 self.wait_to_add_program = False
             elif self.wait_to_remove_program == True:
                 if last_clicked.exe() in self.tracked_programs:
                     self.config.remove_option('PROGRAMS',
                                               last_clicked.exe())
-                    self.update_label()
-                else:
-                    self.label.setText('404')
+                    self.label.setText('removed')
                 self.wait_to_remove_program = False
 
         return super().eventFilter(source, event)
