@@ -66,7 +66,7 @@ class MainWindow(QMainWindow):
         if 'PROGRAMS' not in self.config.sections():
             self.config['PROGRAMS'] = {}
 
-        self.idle_timeout = self.config['OPTIONS']['idle_timeout']
+        self.idle_timeout = self.config.getint('OPTIONS', 'idle_timeout')
         self.play_sound_on_idle = True if self.config['OPTIONS'][
             'play_sound_on_idle'].lower() == "true" else False
         self.show_border_on_idle = True if self.config['OPTIONS'][
@@ -244,7 +244,7 @@ class MainWindow(QMainWindow):
 
         # -----------------------------------------------------------------------
 
-        if get_idle_duration() >= int(self.idle_timeout):
+        if get_idle_duration() >= self.idle_timeout:
             if self.show_border_on_idle:
                 self.border_window.show()
 
@@ -266,13 +266,14 @@ class MainWindow(QMainWindow):
                                   | Qt.WindowCloseButtonHint)
         dialog_box.setInputMode(QInputDialog.IntInput)
         dialog_box.setIntRange(1, 99999)
-        dialog_box.setIntValue(int(self.idle_timeout))
+        dialog_box.setIntValue(self.idle_timeout)
         dialog_box.setLabelText('Ender new idle timeout:')
         dialog_box.setWindowTitle('Idle Setting')
 
         if dialog_box.exec() == QInputDialog.Accepted:
             new_timeout = dialog_box.intValue()
             self.idle_timeout = new_timeout
+            self.config['OPTIONS']['idle_timeout'] = str(new_timeout)
 
     def add_program_keyboard(self):
         current_program = self.get_active_program()
