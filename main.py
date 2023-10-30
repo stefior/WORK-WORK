@@ -153,13 +153,14 @@ class MainWindow(QMainWindow):
             return None
 
     def update_time(self):
-        active_program_path = self.get_active_program().exe()
+        active_program = self.get_active_program()
+        active_program_path = active_program.exe() if active_program else None
 
         if ':' not in self.label.text():
             sleep(.5)
 
-        if active_program_path in self.tracked_programs and self.is_idle(
-        ) == False:
+        if (active_program_path != None) and (active_program_path in self.tracked_programs) and (self.is_idle(
+        ) == False):
             if self.border_window.isVisible():
                 self.border_window.hide()
             self.change_background_color("#B0FFFF")
