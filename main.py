@@ -61,16 +61,16 @@ class MainWindow(QMainWindow):
             self.config['OPTIONS']['previous_time'] = '00:00:00'
             self.config['OPTIONS']['add_program_hotkey'] = "ctrl+win+alt+a"
             self.config['OPTIONS']['remove_program_hotkey'] = "ctrl+win+alt+r"
-            self.config['OPTIONS']['play_sound_on_idle'] = "False"
-            self.config['OPTIONS']['show_border_on_idle'] = "False"
+            self.config['OPTIONS']['play_sound_on_idle'] = "FALSE"
+            self.config['OPTIONS']['show_border_on_idle'] = "FALSE"
         if 'PROGRAMS' not in self.config.sections():
             self.config['PROGRAMS'] = {}
 
         self.idle_timeout = self.config.getint('OPTIONS', 'idle_timeout')
-        self.play_sound_on_idle = True if self.config['OPTIONS'][
-            'play_sound_on_idle'].lower() == "true" else False
-        self.show_border_on_idle = True if self.config['OPTIONS'][
-            'show_border_on_idle'].lower() == "true" else False
+        self.play_sound_on_idle = self.config['OPTIONS'][
+            'play_sound_on_idle'].upper()
+        self.show_border_on_idle = self.config['OPTIONS'][
+            'show_border_on_idle'].upper()
         self.tracked_programs = self.config['PROGRAMS']
 
         keyboard.add_hotkey(self.config['OPTIONS']['add_program_hotkey'],
@@ -206,11 +206,11 @@ class MainWindow(QMainWindow):
             f'Timeout: {self.idle_timeout}')
         idle_timeout_item.triggered.connect(self.set_idle_timeout)
         toggle_idle_sound_item = self.menu.addAction(
-            f'Idle indicator sound: {"on" if self.play_sound_on_idle else "off"}'
+            f'Idle indicator sound: {"on" if self.play_sound_on_idle == "TRUE" else "off"}'
         )
         toggle_idle_sound_item.triggered.connect(self.toggle_idle_sound)
         toggle_idle_border_item = self.menu.addAction(
-            f'Idle indicator border: {"on" if self.show_border_on_idle else "off"}'
+            f'Idle indicator border: {"on" if self.show_border_on_idle == "TRUE" else "off"}'
         )
         toggle_idle_border_item.triggered.connect(self.toggle_idle_border)
         self.menu.addSeparator()
@@ -219,13 +219,13 @@ class MainWindow(QMainWindow):
         resume_previous_time_item.triggered.connect(self.resume_previous_time)
 
     def toggle_idle_border(self):
-        if self.show_border_on_idle:
-            self.config['OPTIONS']['show_border_on_idle'] = 'False'
-            self.show_border_on_idle = False
+        if self.show_border_on_idle == 'TRUE':
+            self.config['OPTIONS']['show_border_on_idle'] = 'FALSE'
+            self.show_border_on_idle = "FALSE"
             self.label.setText('brdr off')
         else:
-            self.config['OPTIONS']['show_border_on_idle'] = 'True'
-            self.show_border_on_idle = True
+            self.config['OPTIONS']['show_border_on_idle'] = 'TRUE'
+            self.show_border_on_idle = "TRUE"
             self.label.setText('brdr on')
 
     def is_idle(self):
@@ -246,10 +246,10 @@ class MainWindow(QMainWindow):
         # -----------------------------------------------------------------------
 
         if get_idle_duration() >= self.idle_timeout:
-            if self.show_border_on_idle:
+            if self.show_border_on_idle == "TRUE":
                 self.border_window.show()
 
-            if self.play_sound_on_idle and self.seconds_since_idle_timeout == 0:
+            if self.play_sound_on_idle == "TRUE" and self.seconds_since_idle_timeout == 0:
                 wave_obj = simpleaudio.WaveObject.from_wave_file("alert.wav")
                 wave_obj.play()
                 self.seconds_since_idle_timeout += 1
@@ -312,13 +312,13 @@ class MainWindow(QMainWindow):
         self.update_label()
 
     def toggle_idle_sound(self):
-        if self.play_sound_on_idle:
-            self.config['OPTIONS']['play_sound_on_idle'] = 'False'
-            self.play_sound_on_idle = False
+        if self.play_sound_on_idle == 'TRUE':
+            self.config['OPTIONS']['play_sound_on_idle'] = "FALSE"
+            self.play_sound_on_idle = "FALSE"
             self.label.setText('snd off')
         else:
-            self.config['OPTIONS']['play_sound_on_idle'] = 'True'
-            self.play_sound_on_idle = True
+            self.config['OPTIONS']['play_sound_on_idle'] = "TRUE"
+            self.play_sound_on_idle = "TRUE"
             self.label.setText('snd on')
 
     def checkbox_was_toggled(self, checked):
