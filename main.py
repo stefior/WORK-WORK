@@ -280,9 +280,11 @@ class MainWindow(QMainWindow):
         current_program = self.get_active_program()
 
         if current_program != None:
-            self.tracked_programs[
-                current_program.exe()] = current_program.name()
-            self.label.setText('added')
+            if current_program.exe() in self.tracked_programs:
+                self.label.setText('already+') 
+            else:
+                self.tracked_programs[current_program.exe()] = current_program.name()
+                self.label.setText('added')
 
     def remove_program_keyboard(self):
         current_program = self.get_active_program()
@@ -292,7 +294,7 @@ class MainWindow(QMainWindow):
                 self.config.remove_option('PROGRAMS', current_program.exe())
                 self.label.setText('removed')
             else:
-                self.label.setText('404')
+                self.label.setText('already-')
 
     def add_program_mouse(self):
         self.wait_to_add_program = True
@@ -332,13 +334,18 @@ class MainWindow(QMainWindow):
             if last_clicked == None:
                 pass
             elif self.wait_to_add_program == True:
-                self.tracked_programs[last_clicked.exe()] = last_clicked.name()
-                self.label.setText('added')
+                if last_clicked.exe() in self.tracked_programs:
+                    self.label.setText('already+')
+                else:
+                    self.tracked_programs[last_clicked.exe()] = last_clicked.name()
+                    self.label.setText('added')
                 self.wait_to_add_program = False
             elif self.wait_to_remove_program == True:
                 if last_clicked.exe() in self.tracked_programs:
                     self.config.remove_option('PROGRAMS', last_clicked.exe())
                     self.label.setText('removed')
+                else:
+                    self.label.setText('already-')
                 self.wait_to_remove_program = False
 
         return super().eventFilter(source, event)
