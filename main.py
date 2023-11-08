@@ -276,25 +276,35 @@ class MainWindow(QMainWindow):
             self.idle_timeout = new_timeout
             self.config['OPTIONS']['idle_timeout'] = str(new_timeout)
 
+    def is_self_focused(self):
+        if self.isActiveWindow():
+            return True
+        else:
+            return any(widget.isActiveWindow() for widget in self.findChildren(QWidget))
+
     def add_program_keyboard(self):
         current_program = self.get_active_program()
+        current_program_exe = current_program.exe()
+        if current_program == None or self.is_self_focused():
+            return
 
-        if current_program != None:
-            if current_program.exe() in self.tracked_programs:
-                self.label.setText('already+') 
-            else:
-                self.tracked_programs[current_program.exe()] = current_program.name()
-                self.label.setText('added')
+        if current_program_exe in self.tracked_programs:
+            self.label.setText('already+') 
+        else:
+            self.tracked_programs[current_program_exe] = current_program.name()
+            self.label.setText('added')
 
     def remove_program_keyboard(self):
         current_program = self.get_active_program()
+        current_program_exe = current_program.exe()
+        if current_program == None or self.is_self_focused():
+            return
 
-        if current_program != None:
-            if current_program.exe() in self.tracked_programs:
-                self.config.remove_option('PROGRAMS', current_program.exe())
-                self.label.setText('removed')
-            else:
-                self.label.setText('already-')
+        if current_program_exe in self.tracked_programs:
+            self.config.remove_option('PROGRAMS', current_program_exe)
+            self.label.setText('removed')
+        else:
+            self.label.setText('already-')
 
     def add_program_mouse(self):
         self.wait_to_add_program = True
@@ -330,19 +340,20 @@ class MainWindow(QMainWindow):
     def eventFilter(self, source, event):
         if event.type() == QEvent.WindowDeactivate:
             last_clicked = self.get_active_program()
+            last_clicked_exe = last_clicked.exe()
 
             if last_clicked == None:
                 pass
             elif self.wait_to_add_program == True:
-                if last_clicked.exe() in self.tracked_programs:
+                if last_clicked_exe in self.tracked_programs:
                     self.label.setText('already+')
                 else:
-                    self.tracked_programs[last_clicked.exe()] = last_clicked.name()
+                    self.tracked_programs[last_clicked_exe] = last_clicked.name()
                     self.label.setText('added')
                 self.wait_to_add_program = False
             elif self.wait_to_remove_program == True:
-                if last_clicked.exe() in self.tracked_programs:
-                    self.config.remove_option('PROGRAMS', last_clicked.exe())
+                if last_clicked_exe in self.tracked_programs:
+                    self.config.remove_option('PROGRAMS', last_clicked_exe)
                     self.label.setText('removed')
                 else:
                     self.label.setText('already-')
@@ -354,7 +365,6 @@ class MainWindow(QMainWindow):
         with open('settings.ini', 'w') as configfile:
             self.config['OPTIONS']['previous_time'] = self.current_time
             self.config.write(configfile)
-
 
 app = QApplication([])
 window = MainWindow()
