@@ -1,3 +1,5 @@
+import os
+import sys
 import psutil
 import win32gui
 import win32process
@@ -10,6 +12,12 @@ from PyQt5.QtCore import QSize, Qt, QEvent, QTimer
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QCheckBox, QHBoxLayout, QMenu, QInputDialog
 from PyQt5.QtGui import QFont, QFontDatabase, QPainter, QColor, QPen
 
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
+alert_path = resource_path('alert.wav')
+font_path = resource_path('digital-7-mono.ttf')
 
 class BorderWindow(QWidget):
 
@@ -98,7 +106,7 @@ class MainWindow(QMainWindow):
         self.current_time = '00:00:00'
         self.label = QLabel(self.current_time, self)
         self.label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        digital_font_id = QFontDatabase.addApplicationFont("digital-7-mono.ttf")
+        digital_font_id = QFontDatabase.addApplicationFont(font_path)
         font_families = QFontDatabase.applicationFontFamilies(digital_font_id)
         self.label.setFont(QFont(font_families[0], 24))
 
@@ -249,7 +257,7 @@ class MainWindow(QMainWindow):
                 self.border_window.show()
 
             if self.play_sound_on_idle == "TRUE" and self.seconds_since_idle_timeout == 0:
-                wave_obj = simpleaudio.WaveObject.from_wave_file("alert.wav")
+                wave_obj = simpleaudio.WaveObject.from_wave_file(alert_path)
                 wave_obj.play()
                 self.seconds_since_idle_timeout += 1
 
