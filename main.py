@@ -6,7 +6,7 @@ import keyboard
 import simpleaudio
 from time import sleep
 from ctypes import Structure, windll, c_uint, sizeof, byref
-from PyQt5.QtCore import QSize, Qt, QEvent, QTimer, QRect
+from PyQt5.QtCore import QSize, Qt, QEvent, QTimer
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QCheckBox, QHBoxLayout, QMenu, QInputDialog
 from PyQt5.QtGui import QFont, QFontDatabase, QPainter, QColor, QPen
 
@@ -98,8 +98,7 @@ class MainWindow(QMainWindow):
         self.current_time = '00:00:00'
         self.label = QLabel(self.current_time, self)
         self.label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        digital_font_id = QFontDatabase.addApplicationFont(
-            "digital-7-mono.ttf")
+        digital_font_id = QFontDatabase.addApplicationFont("digital-7-mono.ttf")
         font_families = QFontDatabase.applicationFontFamilies(digital_font_id)
         self.label.setFont(QFont(font_families[0], 24))
 
@@ -243,7 +242,7 @@ class MainWindow(QMainWindow):
             millis = windll.kernel32.GetTickCount() - lastInputInfo.dwTime
             return millis / 1000
 
-        # -----------------------------------------------------------------------
+        # ----------------------------------------------------------------------
 
         if get_idle_duration() >= self.idle_timeout:
             if self.show_border_on_idle == "TRUE":
@@ -337,27 +336,31 @@ class MainWindow(QMainWindow):
         self.hide_time = checked
         self.update_label()
 
+    def click_handler(self):
+        last_clicked = self.get_active_program()
+        if last_clicked == None:
+            return
+        last_clicked_exe = last_clicked.exe()
+        
+        if self.wait_to_add_program == True:
+            if last_clicked_exe in self.tracked_programs:
+                self.label.setText('already+')
+            else:
+                self.tracked_programs[last_clicked_exe] = last_clicked.name()
+                self.label.setText('added')
+            self.wait_to_add_program = False
+        elif self.wait_to_remove_program == True:
+            if last_clicked_exe in self.tracked_programs:
+                self.config.remove_option('PROGRAMS', last_clicked_exe)
+                self.label.setText('removed')
+            else:
+                self.label.setText('already-')
+            self.wait_to_remove_program = False
+
+
     def eventFilter(self, source, event):
         if event.type() == QEvent.WindowDeactivate:
-            last_clicked = self.get_active_program()
-            last_clicked_exe = last_clicked.exe()
-
-            if last_clicked == None:
-                pass
-            elif self.wait_to_add_program == True:
-                if last_clicked_exe in self.tracked_programs:
-                    self.label.setText('already+')
-                else:
-                    self.tracked_programs[last_clicked_exe] = last_clicked.name()
-                    self.label.setText('added')
-                self.wait_to_add_program = False
-            elif self.wait_to_remove_program == True:
-                if last_clicked_exe in self.tracked_programs:
-                    self.config.remove_option('PROGRAMS', last_clicked_exe)
-                    self.label.setText('removed')
-                else:
-                    self.label.setText('already-')
-                self.wait_to_remove_program = False
+           self.click_handler() 
 
         return super().eventFilter(source, event)
 
