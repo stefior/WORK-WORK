@@ -10,7 +10,7 @@ from time import sleep
 from ctypes import Structure, windll, c_uint, sizeof, byref
 from PyQt5.QtCore import QSize, Qt, QEvent, QTimer
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QCheckBox, QHBoxLayout, QMenu, QInputDialog
-from PyQt5.QtGui import QFont, QFontDatabase, QPainter, QColor, QPen
+from PyQt5.QtGui import QFont, QFontDatabase, QPainter, QColor, QPen, QIcon
 
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -18,6 +18,7 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 alert_path = resource_path('alert.wav')
 font_path = resource_path('digital-7-mono.ttf')
+icon_path = resource_path('timericon.ico')
 
 class BorderWindow(QWidget):
 
@@ -93,6 +94,7 @@ class MainWindow(QMainWindow):
         self.wait_to_remove_program = False
 
         self.setWindowTitle("WORK WORK")
+        self.setWindowIcon(QIcon(icon_path))
         self.setFixedSize(QSize(205, 39))
         self.setObjectName("MainWindow")
         self.change_background_color("#F07070")
