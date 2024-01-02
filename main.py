@@ -8,17 +8,25 @@ import keyboard
 import simpleaudio
 from time import sleep
 from ctypes import Structure, windll, c_uint, sizeof, byref
+
 from PyQt5.QtCore import QSize, Qt, QEvent, QTimer
-from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QCheckBox, QHBoxLayout, QMenu, QInputDialog
+from PyQt5.QtWidgets import (QMainWindow, QApplication, QWidget, QPushButton,
+                             QLabel, QCheckBox, QHBoxLayout, QMenu,
+                             QInputDialog)
 from PyQt5.QtGui import QFont, QFontDatabase, QPainter, QColor, QPen, QIcon
+
 
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
-    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    base_path = getattr(sys, '_MEIPASS', os.path.dirname(
+        os.path.abspath(__file__)))
     return os.path.join(base_path, relative_path)
+
+
 alert_path = resource_path('alert.wav')
 font_path = resource_path('digital-7-mono.ttf')
 icon_path = resource_path('timericon.ico')
+
 
 class BorderWindow(QWidget):
 
@@ -61,7 +69,8 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        # delimeters set to only "=" becuase ":" is used for saving the path of tracked programs
+        # delimeters set to only "="
+        # becuase ":" is used for saving the path of tracked programs
         self.config = configparser.ConfigParser(delimiters=('=', ))
         self.config.read('settings.ini')
         if 'OPTIONS' not in self.config.sections():
@@ -139,13 +148,13 @@ class MainWindow(QMainWindow):
             #MainWindow {{
                 background-color: {color};
             }}
-                            
+
             QPushButton {{
                 background-color: white;
                 padding: 3px 6px;
                 border: 1px solid black;
             }}
-            
+
             QPushButton::menu-indicator {{
                 width: 0;
             }}
@@ -158,7 +167,8 @@ class MainWindow(QMainWindow):
                 active_window_handle)
             program = psutil.Process(process_id)
             return program
-        except:
+        except (psutil.NoSuchProcess, psutil.AccessDenied, OSError) as e:
+            print(e)
             return None
 
     def update_time(self):
@@ -168,8 +178,10 @@ class MainWindow(QMainWindow):
         if ':' not in self.label.text():
             sleep(.5)
 
-        if (active_program_path != None) and (active_program_path in self.tracked_programs) and (self.is_idle(
-        ) == False):
+        if (active_program_path is not None and
+                active_program_path in self.tracked_programs and
+                self.is_idle() is False):
+
             if self.border_window.isVisible():
                 self.border_window.hide()
             self.change_background_color("#B0FFFF")
@@ -213,15 +225,19 @@ class MainWindow(QMainWindow):
 
         idle_timeout_item = self.menu.addAction(
             f'Timeout: {self.idle_timeout}')
-        idle_timeout_item.triggered.connect(self.set_idle_timeout)
+        sound_state = "on" if self.play_sound_on_idle == "TRUE" else "off"
         toggle_idle_sound_item = self.menu.addAction(
-            f'Idle indicator sound: {"on" if self.play_sound_on_idle == "TRUE" else "off"}'
+            f'Idle indicator sound: {sound_state}'
         )
+        idle_timeout_item.triggered.connect(self.set_idle_timeout)
+
         toggle_idle_sound_item.triggered.connect(self.toggle_idle_sound)
+        border_state = "on" if self.show_border_on_idle == "TRUE" else "off"
         toggle_idle_border_item = self.menu.addAction(
-            f'Idle indicator border: {"on" if self.show_border_on_idle == "TRUE" else "off"}'
+            f'Idle indicator border: {border_state}'
         )
         toggle_idle_border_item.triggered.connect(self.toggle_idle_border)
+
         self.menu.addSeparator()
 
         resume_previous_time_item = self.menu.addAction("Resume previous time")
@@ -258,7 +274,8 @@ class MainWindow(QMainWindow):
             if self.show_border_on_idle == "TRUE":
                 self.border_window.show()
 
-            if self.play_sound_on_idle == "TRUE" and self.seconds_since_idle_timeout == 0:
+            if (self.play_sound_on_idle == "TRUE" and
+                    self.seconds_since_idle_timeout == 0):
                 wave_obj = simpleaudio.WaveObject.from_wave_file(alert_path)
                 wave_obj.play()
                 self.seconds_since_idle_timeout += 1
@@ -289,16 +306,19 @@ class MainWindow(QMainWindow):
         if self.isActiveWindow():
             return True
         else:
-            return any(widget.isActiveWindow() for widget in self.findChildren(QWidget))
+            return any(
+                widget.isActiveWindow() for
+                widget in self.findChildren(QWidget)
+            )
 
     def add_program_keyboard(self):
         current_program = self.get_active_program()
         current_program_exe = current_program.exe()
-        if current_program == None or self.is_self_focused():
+        if current_program is None or self.is_self_focused():
             return
 
         if current_program_exe in self.tracked_programs:
-            self.label.setText('already+') 
+            self.label.setText('already+')
         else:
             self.tracked_programs[current_program_exe] = current_program.name()
             self.label.setText('added')
@@ -306,7 +326,7 @@ class MainWindow(QMainWindow):
     def remove_program_keyboard(self):
         current_program = self.get_active_program()
         current_program_exe = current_program.exe()
-        if current_program == None or self.is_self_focused():
+        if current_program is None or self.is_self_focused():
             return
 
         if current_program_exe in self.tracked_programs:
@@ -348,18 +368,18 @@ class MainWindow(QMainWindow):
 
     def click_handler(self):
         last_clicked = self.get_active_program()
-        if last_clicked == None:
+        if last_clicked is None:
             return
         last_clicked_exe = last_clicked.exe()
-        
-        if self.wait_to_add_program == True:
+
+        if self.wait_to_add_program is True:
             if last_clicked_exe in self.tracked_programs:
                 self.label.setText('already+')
             else:
                 self.tracked_programs[last_clicked_exe] = last_clicked.name()
                 self.label.setText('added')
             self.wait_to_add_program = False
-        elif self.wait_to_remove_program == True:
+        elif self.wait_to_remove_program is True:
             if last_clicked_exe in self.tracked_programs:
                 self.config.remove_option('PROGRAMS', last_clicked_exe)
                 self.label.setText('removed')
@@ -367,10 +387,9 @@ class MainWindow(QMainWindow):
                 self.label.setText('already-')
             self.wait_to_remove_program = False
 
-
     def eventFilter(self, source, event):
         if event.type() == QEvent.WindowDeactivate:
-           self.click_handler() 
+            self.click_handler()
 
         return super().eventFilter(source, event)
 
@@ -378,6 +397,7 @@ class MainWindow(QMainWindow):
         with open('settings.ini', 'w') as configfile:
             self.config['OPTIONS']['previous_time'] = self.current_time
             self.config.write(configfile)
+
 
 app = QApplication([])
 window = MainWindow()
