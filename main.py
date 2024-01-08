@@ -242,6 +242,8 @@ class MainWindow(QMainWindow):
 
         resume_previous_time_item = self.menu.addAction("Resume previous time")
         resume_previous_time_item.triggered.connect(self.resume_previous_time)
+        reset_time_item = self.menu.addAction("Reset time")
+        reset_time_item.triggered.connect(self.reset_time)
 
     def toggle_idle_border(self):
         if self.show_border_on_idle == 'TRUE':
@@ -350,6 +352,15 @@ class MainWindow(QMainWindow):
         self.hours = int(previous_time[0])
         self.minutes = int(previous_time[1])
         self.seconds = int(previous_time[2])
+        self.update_label()
+
+    def reset_time(self):
+        with open('settings.ini', 'w') as configfile:
+            self.config['OPTIONS']['previous_time'] = self.current_time
+            self.config.write(configfile)
+        self.hours = 0
+        self.minutes = 0
+        self.seconds = 0
         self.update_label()
 
     def toggle_idle_sound(self):
