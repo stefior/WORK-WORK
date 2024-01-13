@@ -30,32 +30,12 @@ icon_path = resource_path('timericon.ico')
 
 
 class BorderWindow(QWidget):
-
-    def __init__(self):
+    def __init__(self, geometry):
         super().__init__()
-        self.initUI()
-
-    def initUI(self):
-        # Get combined screen geometry
-        desktop = QApplication.desktop()
-        if desktop is not None:
-            rect = desktop.screenGeometry(0)  # Start with the geometry of the first screen
-
-            for i in range(1, desktop.screenCount()):
-                # Union the geometries of all screens
-                rect = rect.united(desktop.screenGeometry(i))
-
-            # If all monitors aren't aligned it doesn't cover all perimeters
-            # but it's good enough to fulfill it's purpose for now
-            self.setGeometry(rect)
-
-            self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
-                                | Qt.Tool)
-            self.setAttribute(Qt.WA_TranslucentBackground)
-
-            self.show()
-        else:
-            print("Error: Desktop object not available")
+        self.setGeometry(geometry)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.show()
 
     def paintEvent(self, a0: QEvent):
         event = a0
@@ -67,6 +47,36 @@ class BorderWindow(QWidget):
     def drawBorder(self, qp):
         qp.setPen(QPen(QColor(240, 112, 112), 8))  # Set pen color and width
         qp.drawRect(0, 0, self.width(), self.height())  # Draw border rectangle
+
+
+class BorderWindows:
+    def __init__(self):
+        self.border_windows = []
+        self.create_border_windows()
+        self.is_visible = False
+
+    def create_border_windows(self):
+        desktop = QApplication.desktop()
+        if desktop is not None:
+            for i in range(desktop.screenCount()):
+                geometry = desktop.screenGeometry(i)
+                border_window = BorderWindow(geometry)
+                self.border_windows.append(border_window)
+        else:
+            print("Error: Desktop object not available")
+
+    def hide(self):
+        for border_window in self.border_windows:
+            border_window.hide()
+        self.is_visible = False
+
+    def show(self):
+        for border_window in self.border_windows:
+            border_window.show()
+        self.is_visible = True
+
+    def isVisible(self):
+        return self.is_visible
 
 
 class MainWindow(QMainWindow):
@@ -98,8 +108,8 @@ class MainWindow(QMainWindow):
         keyboard.add_hotkey(remove_program_hotkey, self.remove_program_keyboard)
 
         self.seconds_since_idle_timeout = 0
-        self.border_window = BorderWindow()
-        self.border_window.hide()
+        self.border_windows = BorderWindows()
+        self.border_windows.hide()
         self.wait_to_add_program = False
         self.wait_to_remove_program = False
 
@@ -189,8 +199,8 @@ class MainWindow(QMainWindow):
                 active_program_path in self.tracked_programs and
                 self.is_idle() is False):
 
-            if self.border_window.isVisible():
-                self.border_window.hide()
+            if self.border_windows.isVisible():
+                self.border_windows.hide()
             self.change_background_color("#B0FFFF")
             self.setWindowTitle("KEEP WORKING")
 
@@ -279,7 +289,7 @@ class MainWindow(QMainWindow):
 
         if get_idle_duration() >= self.idle_timeout:
             if self.show_border_on_idle:
-                self.border_window.show()
+                self.border_windows.show()
 
             if self.play_sound_on_idle and self.seconds_since_idle_timeout == 0:
                 wave_obj = simpleaudio.WaveObject.from_wave_file(alert_path)
