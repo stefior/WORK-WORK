@@ -8,7 +8,6 @@ import keyboard
 import simpleaudio
 from time import sleep
 from ctypes import Structure, windll, c_uint, sizeof, byref
-
 from PyQt5.QtCore import QSize, Qt, QEvent, QTimer
 from PyQt5.QtWidgets import (QMainWindow, QApplication, QWidget, QPushButton,
                              QLabel, QCheckBox, QHBoxLayout, QMenu,
@@ -37,8 +36,7 @@ class BorderWindow(QWidget):
     def initUI(self):
         # Get combined screen geometry
         desktop = QApplication.desktop()
-        rect = desktop.screenGeometry(
-            0)  # Start with the geometry of the first screen
+        rect = desktop.screenGeometry(0)  # Start with the geometry of the first screen
         for i in range(1, desktop.screenCount()):
             rect = rect.united(desktop.screenGeometry(
                 i))  # Union the geometries of all screens
@@ -161,15 +159,21 @@ class MainWindow(QMainWindow):
             """)
 
     def get_active_program(self):
-        try:
-            active_window_handle = win32gui.GetForegroundWindow()
-            _, process_id = win32process.GetWindowThreadProcessId(
-                active_window_handle)
-            program = psutil.Process(process_id)
-            return program
-        except (psutil.NoSuchProcess, psutil.AccessDenied, OSError) as e:
-            print(e)
-            return None
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                active_window_handle = win32gui.GetForegroundWindow()
+                _, process_id = win32process.GetWindowThreadProcessId(active_window_handle)
+                if process_id > 0:  # Extra check for positive PID
+                    program = psutil.Process(process_id)
+                    return program
+                else:
+                    print(f"Invalid PID (attempt {attempt+1}): {process_id}")
+            except (psutil.NoSuchProcess, psutil.AccessDenied, OSError, ValueError) as e:
+                print(f"Error getting active program (attempt {attempt+1}): {e}")
+            sleep(0.2)  # Short delay before retry
+
+        return None  # Return None if all attempts fail
 
     def update_time(self):
         active_program = self.get_active_program()
