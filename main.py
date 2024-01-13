@@ -1,18 +1,20 @@
+import configparser
+from ctypes import Structure, windll, c_uint, sizeof, byref
 import os
 import sys
+import time
+
+import keyboard
 import psutil
+import simpleaudio
 import win32gui
 import win32process
-import configparser
-import keyboard
-import simpleaudio
-from time import sleep
-from ctypes import Structure, windll, c_uint, sizeof, byref
-from PyQt5.QtCore import QSize, Qt, QEvent, QTimer
+
+from PyQt5.QtCore import QSize, Qt, QObject, QEvent, QTimer
+from PyQt5.QtGui import QFont, QFontDatabase, QPainter, QColor, QPen, QIcon
 from PyQt5.QtWidgets import (QMainWindow, QApplication, QWidget, QPushButton,
                              QLabel, QCheckBox, QHBoxLayout, QMenu,
                              QInputDialog)
-from PyQt5.QtGui import QFont, QFontDatabase, QPainter, QColor, QPen, QIcon
 
 
 def resource_path(relative_path):
@@ -36,22 +38,27 @@ class BorderWindow(QWidget):
     def initUI(self):
         # Get combined screen geometry
         desktop = QApplication.desktop()
-        rect = desktop.screenGeometry(0)  # Start with the geometry of the first screen
-        for i in range(1, desktop.screenCount()):
-            rect = rect.united(desktop.screenGeometry(
-                i))  # Union the geometries of all screens
+        if desktop is not None:
+            rect = desktop.screenGeometry(0)  # Start with the geometry of the first screen
 
-        # if all monitors aren't aligned it doesn't cover all perimeters
-        # but it's good enough to fulfill it's purpose
-        self.setGeometry(rect)
+            for i in range(1, desktop.screenCount()):
+                # Union the geometries of all screens
+                rect = rect.united(desktop.screenGeometry(i))
 
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
-                            | Qt.Tool)
-        self.setAttribute(Qt.WA_TranslucentBackground)
+            # If all monitors aren't aligned it doesn't cover all perimeters
+            # but it's good enough to fulfill it's purpose for now
+            self.setGeometry(rect)
 
-        self.show()
+            self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+                                | Qt.Tool)
+            self.setAttribute(Qt.WA_TranslucentBackground)
 
-    def paintEvent(self, event):
+            self.show()
+        else:
+            print("Error: Desktop object not available")
+
+    def paintEvent(self, a0: QEvent):
+        event = a0
         qp = QPainter()
         qp.begin(self)
         self.drawBorder(qp)
@@ -67,32 +74,28 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        # delimeters set to only "="
-        # becuase ":" is used for saving the path of tracked programs
+        # Delimeters set to only "=" becuase 
+        # ":" is used for saving the path of tracked programs
         self.config = configparser.ConfigParser(delimiters=('=', ))
         self.config.read('settings.ini')
-        if 'OPTIONS' not in self.config.sections():
+        if 'OPTIONS' not in self.config:
             self.config['OPTIONS'] = {}
-            self.config['OPTIONS']['idle_timeout'] = '30'
-            self.config['OPTIONS']['previous_time'] = '00:00:00'
-            self.config['OPTIONS']['add_program_hotkey'] = "ctrl+win+alt+a"
-            self.config['OPTIONS']['remove_program_hotkey'] = "ctrl+win+alt+r"
-            self.config['OPTIONS']['play_sound_on_idle'] = "FALSE"
-            self.config['OPTIONS']['show_border_on_idle'] = "FALSE"
-        if 'PROGRAMS' not in self.config.sections():
+        if 'PROGRAMS' not in self.config:
             self.config['PROGRAMS'] = {}
-
-        self.idle_timeout = self.config.getint('OPTIONS', 'idle_timeout')
-        self.play_sound_on_idle = self.config['OPTIONS'][
-            'play_sound_on_idle'].upper()
-        self.show_border_on_idle = self.config['OPTIONS'][
-            'show_border_on_idle'].upper()
+        
+        options = self.config['OPTIONS']
         self.tracked_programs = self.config['PROGRAMS']
 
-        keyboard.add_hotkey(self.config['OPTIONS']['add_program_hotkey'],
-                            self.add_program_keyboard)
-        keyboard.add_hotkey(self.config['OPTIONS']['remove_program_hotkey'],
-                            self.remove_program_keyboard)
+        self.idle_timeout = options.getint('idle_timeout', 30)
+        self.previous_time = options.get('previous_time', '00:00:00')
+        self.play_sound_on_idle = options.getboolean('play_sound_on_idle', False)
+        self.show_border_on_idle = options.getboolean('show_border_on_idle', False)
+        self.hide_time = options.getboolean('hide_time', False)
+
+        add_program_hotkey = options.get('add_program_hotkey', 'ctrl+win+alt+a')
+        remove_program_hotkey = options.get('remove_program_hotkey', 'ctrl+win+alt+r')
+        keyboard.add_hotkey(add_program_hotkey, self.add_program_keyboard)
+        keyboard.add_hotkey(remove_program_hotkey, self.remove_program_keyboard)
 
         self.seconds_since_idle_timeout = 0
         self.border_window = BorderWindow()
@@ -112,7 +115,7 @@ class MainWindow(QMainWindow):
         timer.timeout.connect(self.update_time)
         timer.start(1000)
 
-        self.current_time = '00:00:00'
+        self.current_time = '--:--:--' if self.hide_time else'00:00:00'
         self.label = QLabel(self.current_time, self)
         self.label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         digital_font_id = QFontDatabase.addApplicationFont(font_path)
@@ -127,7 +130,7 @@ class MainWindow(QMainWindow):
         checkbox = QCheckBox("")
         checkbox.setCheckable(True)
         checkbox.clicked.connect(self.checkbox_was_toggled)
-        self.hide_time = False
+        checkbox.setChecked(self.hide_time)
 
         layout = QHBoxLayout()
         layout.setAlignment(Qt.AlignRight)
@@ -171,7 +174,7 @@ class MainWindow(QMainWindow):
                     print(f"Invalid PID (attempt {attempt+1}): {process_id}")
             except (psutil.NoSuchProcess, psutil.AccessDenied, OSError, ValueError) as e:
                 print(f"Error getting active program (attempt {attempt+1}): {e}")
-            sleep(0.2)  # Short delay before retry
+            time.sleep(0.2)  # Short delay before retry
 
         return None  # Return None if all attempts fail
 
@@ -180,7 +183,7 @@ class MainWindow(QMainWindow):
         active_program_path = active_program.exe() if active_program else None
 
         if ':' not in self.label.text():
-            sleep(.5)
+            time.sleep(.5)
 
         if (active_program_path is not None and
                 active_program_path in self.tracked_programs and
@@ -229,14 +232,14 @@ class MainWindow(QMainWindow):
 
         idle_timeout_item = self.menu.addAction(
             f'Timeout: {self.idle_timeout}')
-        sound_state = "on" if self.play_sound_on_idle == "TRUE" else "off"
+        sound_state = "on" if self.play_sound_on_idle else "off"
         toggle_idle_sound_item = self.menu.addAction(
             f'Idle indicator sound: {sound_state}'
         )
         idle_timeout_item.triggered.connect(self.set_idle_timeout)
 
         toggle_idle_sound_item.triggered.connect(self.toggle_idle_sound)
-        border_state = "on" if self.show_border_on_idle == "TRUE" else "off"
+        border_state = "on" if self.show_border_on_idle else "off"
         toggle_idle_border_item = self.menu.addAction(
             f'Idle indicator border: {border_state}'
         )
@@ -250,14 +253,13 @@ class MainWindow(QMainWindow):
         reset_time_item.triggered.connect(self.reset_time)
 
     def toggle_idle_border(self):
-        if self.show_border_on_idle == 'TRUE':
-            self.config['OPTIONS']['show_border_on_idle'] = 'FALSE'
-            self.show_border_on_idle = "FALSE"
-            self.label.setText('brdr off')
-        else:
-            self.config['OPTIONS']['show_border_on_idle'] = 'TRUE'
-            self.show_border_on_idle = "TRUE"
+        self.show_border_on_idle = not self.show_border_on_idle
+        self.config['OPTIONS']['show_border_on_idle'] = str(self.show_border_on_idle)
+
+        if self.show_border_on_idle:
             self.label.setText('brdr on')
+        else:
+            self.label.setText('brdr off')
 
     def is_idle(self):
         # http://stackoverflow.com/questions/911856/detecting-idle-time-in-python
@@ -273,15 +275,13 @@ class MainWindow(QMainWindow):
             windll.user32.GetLastInputInfo(byref(lastInputInfo))
             millis = windll.kernel32.GetTickCount() - lastInputInfo.dwTime
             return millis / 1000
-
         # ----------------------------------------------------------------------
 
         if get_idle_duration() >= self.idle_timeout:
-            if self.show_border_on_idle == "TRUE":
+            if self.show_border_on_idle:
                 self.border_window.show()
 
-            if (self.play_sound_on_idle == "TRUE" and
-                    self.seconds_since_idle_timeout == 0):
+            if self.play_sound_on_idle and self.seconds_since_idle_timeout == 0:
                 wave_obj = simpleaudio.WaveObject.from_wave_file(alert_path)
                 wave_obj.play()
                 self.seconds_since_idle_timeout += 1
@@ -293,10 +293,12 @@ class MainWindow(QMainWindow):
 
     def set_idle_timeout(self):
         dialog_box = QInputDialog(self)
-        # remove question mark from the title bar
+
+        # Remove question mark from the title bar
         dialog_box.setWindowFlags(dialog_box.windowFlags()
                                   & ~Qt.WindowContextHelpButtonHint
                                   | Qt.WindowCloseButtonHint)
+
         dialog_box.setInputMode(QInputDialog.IntInput)
         dialog_box.setIntRange(1, 99999)
         dialog_box.setIntValue(self.idle_timeout)
@@ -319,9 +321,9 @@ class MainWindow(QMainWindow):
 
     def add_program_keyboard(self):
         current_program = self.get_active_program()
-        current_program_exe = current_program.exe()
         if current_program is None or self.is_self_focused():
             return
+        current_program_exe = current_program.exe()
 
         if current_program_exe in self.tracked_programs:
             self.label.setText('already+')
@@ -331,9 +333,9 @@ class MainWindow(QMainWindow):
 
     def remove_program_keyboard(self):
         current_program = self.get_active_program()
-        current_program_exe = current_program.exe()
         if current_program is None or self.is_self_focused():
             return
+        current_program_exe = current_program.exe()
 
         if current_program_exe in self.tracked_programs:
             self.config.remove_option('PROGRAMS', current_program_exe)
@@ -343,12 +345,14 @@ class MainWindow(QMainWindow):
 
     def add_program_mouse(self):
         self.wait_to_add_program = True
-        # click then handled by eventFilter
+
+        # Click then handled by eventFilter
         self.label.setText('add prog')
 
     def remove_program_mouse(self):
         self.wait_to_remove_program = True
-        # click then handled by eventFilter
+
+        # Click then handled by eventFilter
         self.label.setText('rem prog')
 
     def resume_previous_time(self):
@@ -368,17 +372,17 @@ class MainWindow(QMainWindow):
         self.update_label()
 
     def toggle_idle_sound(self):
-        if self.play_sound_on_idle == 'TRUE':
-            self.config['OPTIONS']['play_sound_on_idle'] = "FALSE"
-            self.play_sound_on_idle = "FALSE"
-            self.label.setText('snd off')
-        else:
-            self.config['OPTIONS']['play_sound_on_idle'] = "TRUE"
-            self.play_sound_on_idle = "TRUE"
+        self.play_sound_on_idle = not self.play_sound_on_idle
+        self.config['OPTIONS']['play_sound_on_idle'] = str(self.play_sound_on_idle)
+
+        if self.play_sound_on_idle:
             self.label.setText('snd on')
+        else:
+            self.label.setText('snd off')
 
     def checkbox_was_toggled(self, checked):
         self.hide_time = checked
+        self.config['OPTIONS']['hide_time'] = str(self.hide_time)
         self.update_label()
 
     def click_handler(self):
@@ -402,13 +406,17 @@ class MainWindow(QMainWindow):
                 self.label.setText('already-')
             self.wait_to_remove_program = False
 
-    def eventFilter(self, source, event):
+    def eventFilter(self, a0: QObject, a1: QEvent):
+        source = a0
+        event = a1
+
         if event.type() == QEvent.WindowDeactivate:
             self.click_handler()
 
         return super().eventFilter(source, event)
 
-    def closeEvent(self, event):
+    def closeEvent(self, a0: QEvent):
+        event = a0
         with open('settings.ini', 'w') as configfile:
             self.config['OPTIONS']['previous_time'] = self.current_time
             self.config.write(configfile)
