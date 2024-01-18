@@ -178,6 +178,16 @@ class MainWindow(QMainWindow):
 
         self.show()
 
+    def save_data(self):
+        self.settings.setValue("geometry", self.saveGeometry())
+        with open("settings.ini", "w") as configfile:
+            self.config["OPTIONS"]["previous_time"] = self.current_time
+            self.config.write(configfile)
+    
+    def handle_exception(self, type, value, traceback):
+        self.save_data()
+        sys.exit(0)
+
     def change_background_color(self, color):
         self.setStyleSheet(
             f"""
@@ -205,7 +215,7 @@ class MainWindow(QMainWindow):
                 _, process_id = win32process.GetWindowThreadProcessId(
                     active_window_handle
                 )
-                if process_id > 0:  # Extra check for positive PID
+                if process_id > 0:
                     program = psutil.Process(process_id)
                     return program
                 else:
@@ -217,9 +227,10 @@ class MainWindow(QMainWindow):
                 ValueError,
             ) as e:
                 print(f"Error getting active program (attempt {attempt+1}): {e}")
-            time.sleep(0.2)  # Short delay before retry
 
-        return None  # Return None if all attempts fail
+            time.sleep(0.2)
+
+        return None
 
     def update_time(self):
         active_program = self.get_active_program()
@@ -405,9 +416,7 @@ class MainWindow(QMainWindow):
         self.update_label()
 
     def reset_time(self):
-        with open("settings.ini", "w") as configfile:
-            self.config["OPTIONS"]["previous_time"] = self.current_time
-            self.config.write(configfile)
+        self.save_data()
         self.hours = 0
         self.minutes = 0
         self.seconds = 0
@@ -459,14 +468,12 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, a0: QEvent):
         event = a0
-        self.settings.setValue("geometry", self.saveGeometry())
-        with open("settings.ini", "w") as configfile:
-            self.config["OPTIONS"]["previous_time"] = self.current_time
-            self.config.write(configfile)
+        self.save_data()
 
 
 app = QApplication([])
 window = MainWindow()
+sys.excepthook = window.handle_exception
 window.setWindowFlags(Qt.WindowCloseButtonHint | Qt.WindowStaysOnTopHint)
 window.show()
 
