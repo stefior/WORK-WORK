@@ -464,6 +464,11 @@ class MainWindow(QMainWindow):
         if event.type() == QEvent.WindowDeactivate:
             self.click_handler()
 
+        if event.type() == QEvent.KeyPress and event.key() == Qt.Key_Escape:
+            self.wait_to_add_program = False
+            self.wait_to_remove_program = False
+            self.label.setText("canceled")
+
         return super().eventFilter(source, event)
 
     def closeEvent(self, a0: QEvent):
