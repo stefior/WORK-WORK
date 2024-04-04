@@ -1,8 +1,8 @@
-from configparser import ConfigParser, SectionProxy
-from ctypes import Structure, windll, c_uint, sizeof, byref
 import os
 import sys
 import time
+from configparser import ConfigParser, SectionProxy
+from ctypes import Structure, byref, c_uint, sizeof, windll
 from types import TracebackType
 from typing import Type
 
@@ -11,21 +11,30 @@ import psutil
 import simpleaudio
 import win32gui
 import win32process
-
-from PyQt5.QtCore import QSize, Qt, QObject, QEvent, QTimer, QSettings, QRect
-from PyQt5.QtGui import QFont, QFontDatabase, QPainter, QColor, QPen, QIcon, QKeyEvent
+from PyQt5.QtCore import (
+    QCoreApplication,
+    QEvent,
+    QObject,
+    QRect,
+    QSettings,
+    QSize,
+    Qt,
+    QTimer,
+)
+from PyQt5.QtGui import QColor, QFont, QFontDatabase, QIcon, QKeyEvent, QPainter, QPen
 from PyQt5.QtWidgets import (
     QAction,
-    QDesktopWidget,
-    QMainWindow,
     QApplication,
-    QWidget,
-    QPushButton,
-    QLabel,
     QCheckBox,
+    QDesktopWidget,
     QHBoxLayout,
-    QMenu,
     QInputDialog,
+    QLabel,
+    QMainWindow,
+    QMenu,
+    QMessageBox,
+    QPushButton,
+    QWidget,
 )
 
 
@@ -157,6 +166,7 @@ class MainWindow(QMainWindow):
         timer: QTimer = QTimer(self)
         timer.timeout.connect(self.update_time)
         timer.start(1000)
+        self.time_reached = False
 
         self.current_time: str = "--:--:--" if self.hide_time else "00:00:00"
         self.label: QLabel = QLabel(self.current_time, self)
@@ -276,6 +286,17 @@ class MainWindow(QMainWindow):
                 self.hours += 1
                 self.minutes = 0
                 self.seconds = 0
+
+            # Temporarily hardcoded alert for workday end
+            if (
+                self.hours == 8
+                and self.minutes == 0
+                and self.seconds <= 2
+                and self.time_reached == False
+            ):
+                self.show_alert("Workday complete!")
+                self.time_reached = True
+
         elif self.windowTitle() != "WORK WORK":
             self.change_background_color("#F07070")
             self.setWindowTitle("BACK TO WORK")
@@ -444,6 +465,21 @@ class MainWindow(QMainWindow):
         self.seconds: int = 0
         self.update_label()
 
+    def show_alert(self, message):
+        # Create the QMessageBox
+        alert = QMessageBox(self)
+        alert.setWindowTitle("Alert")
+        alert.setText(message)
+        alert.setIcon(QMessageBox.Warning)
+
+        # Calculate the center position
+        screen_geometry = QCoreApplication.instance().primaryScreen().geometry()
+        screen_center = screen_geometry.center()
+        alert.move(screen_center - alert.rect().center())
+
+        # Display the QMessageBox
+        alert.exec_()
+
     def toggle_idle_sound(self) -> None:
         self.play_sound_on_idle: bool = not self.play_sound_on_idle
         self.config["OPTIONS"]["play_sound_on_idle"] = str(self.play_sound_on_idle)
@@ -477,7 +513,6 @@ class MainWindow(QMainWindow):
         if isinstance(event, QKeyEvent) and event.key() == Qt.Key_Escape:
             self.wait_to_add_program = False
             self.wait_to_remove_program = False
-            self.label.setText("canceled")
 
         return super().eventFilter(source, event)
 
@@ -493,3 +528,4 @@ window.setWindowFlags(Qt.WindowCloseButtonHint | Qt.WindowStaysOnTopHint)
 window.show()
 
 app.exec()
+
