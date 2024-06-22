@@ -14,6 +14,8 @@ import win32process
 from PyQt5.QtCore import (
     QCoreApplication,
     QEvent,
+    QMutex,
+    QMutexLocker,
     QObject,
     QRect,
     QSettings,
@@ -75,7 +77,6 @@ class BorderWindow(QWidget):
 class BorderWindows:
     def __init__(self) -> None:
         self.border_windows: list = []
-        self.create_border_windows()
         self.is_visible: bool = False
 
     def create_border_windows(self) -> None:
@@ -94,6 +95,8 @@ class BorderWindows:
         self.is_visible = False
 
     def show(self) -> None:
+        if not self.border_windows:
+            self.create_border_windows()
         for border_window in self.border_windows:
             border_window.show()
         self.is_visible = True
@@ -105,6 +108,7 @@ class BorderWindows:
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
+        self.lock: QMutex = QMutex()
         self.settings: QSettings = QSettings("qsettings.ini", QSettings.IniFormat)
 
         self.window_size: QSize = QSize(205, 39)
@@ -135,6 +139,8 @@ class MainWindow(QMainWindow):
         options: SectionProxy = self.config["OPTIONS"]
         self.tracked_programs: SectionProxy = self.config["PROGRAMS"]
 
+        self.active_color = options.get("active_color", "#B0FFFF")
+        self.inactive_color = options.get("inactive_color", "#F07070")
         self.idle_timeout: int = options.getint("idle_timeout", 30)
         self.previous_time: str = options.get("previous_time", "00:00:00")
         self.play_sound_on_idle: bool = options.getboolean("play_sound_on_idle", False)
@@ -152,21 +158,20 @@ class MainWindow(QMainWindow):
 
         self.seconds_since_idle_timeout: int = 0
         self.border_windows: BorderWindows = BorderWindows()
-        self.border_windows.hide()
         self.wait_to_add_program: bool = False
         self.wait_to_remove_program: bool = False
 
         self.setWindowTitle("WORK WORK")
         self.setWindowIcon(QIcon(icon_path))
         self.setObjectName("MainWindow")
-        self.change_background_color("#F07070")
+        self.change_background_color(self.inactive_color)
         self.hours: int = 0
         self.minutes: int = 0
         self.seconds: int = 0
         timer: QTimer = QTimer(self)
         timer.timeout.connect(self.update_time)
         timer.start(1000)
-        self.time_reached = False
+        self.goal_time_reached = False
 
         self.current_time: str = "--:--:--" if self.hide_time else "00:00:00"
         self.label: QLabel = QLabel(self.current_time, self)
@@ -213,6 +218,8 @@ class MainWindow(QMainWindow):
 
         self.show()
 
+        self.getting_active_program = False
+
     def save_data(self) -> None:
         self.settings.setValue("geometry", self.saveGeometry())
         with open("settings.ini", "w") as configfile:
@@ -233,8 +240,8 @@ class MainWindow(QMainWindow):
         self.setStyleSheet(f"MainWindow {{ background-color: {color}; }}")
 
     def get_active_program(self) -> psutil.Process | None:
-        max_retries: int = 3
-        for attempt in range(max_retries):
+        MAX_RETRIES: int = 3
+        for attempt in range(MAX_RETRIES):
             try:
                 active_window_handle: int = win32gui.GetForegroundWindow()
                 _, process_id = win32process.GetWindowThreadProcessId(
@@ -257,63 +264,57 @@ class MainWindow(QMainWindow):
 
         return None
 
-    def update_time(self) -> None:
-        active_program: psutil.Process | None = self.get_active_program()
-        active_program_path: str | None = (
-            active_program.exe() if active_program else None
-        )
+    def update_label_safe(self, text: str):
+        QTimer.singleShot(0, lambda: self.label.setText(text))
 
-        if ":" not in self.label.text():
-            # Show the label message for .5 seconds before going back to the time
-            time.sleep(0.5)
-
-        if (
-            active_program_path is not None
-            and active_program_path in self.tracked_programs
-            and self.is_idle() is False
-        ):
-            if self.border_windows.isVisible():
-                self.border_windows.hide()
-            self.change_background_color("#B0FFFF")
-            self.setWindowTitle("KEEP WORKING")
-
-            if self.seconds < 59:
-                self.seconds += 1
-            elif self.minutes < 59:
-                self.minutes += 1
-                self.seconds = 0
-            elif self.hours < 99:
-                self.hours += 1
-                self.minutes = 0
-                self.seconds = 0
-
-            # Temporarily hardcoded alert for workday end
-            if (
-                self.hours == 8
-                and self.minutes == 0
-                and self.seconds <= 2
-                and self.time_reached == False
-            ):
-                self.show_alert("Workday complete!")
-                self.time_reached = True
-
-        elif self.windowTitle() != "WORK WORK":
-            self.change_background_color("#F07070")
-            self.setWindowTitle("BACK TO WORK")
-
-        if not self.wait_to_add_program and not self.wait_to_remove_program:
-            self.update_label()
-
-    def update_label(self) -> None:
-        hh: str = str(self.hours) if self.hours > 9 else "0" + str(self.hours)
-        mm: str = str(self.minutes) if self.minutes > 9 else "0" + str(self.minutes)
-        ss: str = str(self.seconds) if self.seconds > 9 else "0" + str(self.seconds)
-        self.current_time: str = f"{hh}:{mm}:{ss}"
-
+    def update_time_display(self) -> None:
         if self.hide_time:
-            self.label.setText("--:--:--")
+            self.current_time = "--:--:--"
         else:
-            self.label.setText(self.current_time)
+            self.current_time = f"{self.hours:02}:{self.minutes:02}:{self.seconds:02}"
+        self.update_label_safe(self.current_time)
+
+    def update_time(self) -> None:
+        with QMutexLocker(self.lock):
+            active_program: psutil.Process | None = self.get_active_program()
+            active_program_path: str | None = (
+                active_program.exe() if active_program else None
+            )
+
+            if (
+                active_program_path is not None
+                and active_program_path in self.tracked_programs
+                and self.is_idle() is False
+            ):
+                self.change_background_color(self.active_color)
+                self.setWindowTitle("KEEP WORKING")
+
+                if self.seconds < 59:
+                    self.seconds += 1
+                elif self.minutes < 59:
+                    self.minutes += 1
+                    self.seconds = 0
+                elif self.hours < 99:
+                    self.hours += 1
+                    self.minutes = 0
+                    self.seconds = 0
+
+                # Temporarily hardcoded alert for work time goal
+                if (
+                    self.hours == 10
+                    and self.minutes == 0
+                    and self.seconds <= 2
+                    and self.goal_time_reached == False
+                ):
+                    self.show_alert("Workday complete!")
+                    self.goal_time_reached = True
+
+            elif self.windowTitle() != "WORK WORK":
+                self.change_background_color(self.inactive_color)
+                self.setWindowTitle("BACK TO WORK")
+
+            if not self.wait_to_add_program and not self.wait_to_remove_program:
+                self.update_time_display()
 
     def update_menu(self) -> None:
         self.menu.clear()
@@ -386,6 +387,8 @@ class MainWindow(QMainWindow):
 
             return True
         else:
+            if self.border_windows.isVisible():
+                self.border_windows.hide()
             self.seconds_since_idle_timeout = 0
             return False
 
@@ -416,28 +419,32 @@ class MainWindow(QMainWindow):
             return any(widget.isActiveWindow() for widget in self.findChildren(QWidget))
 
     def add_program(self) -> None:
-        current_program: psutil.Process | None = self.get_active_program()
-        if current_program is None or self.is_self_focused():
-            return
-        current_program_exe: str = current_program.exe()
+        with QMutexLocker(self.lock):
+            current_program: psutil.Process | None = self.get_active_program()
+            if current_program is None or self.is_self_focused():
+                return
+            current_program_exe: str = current_program.exe()
 
-        if current_program_exe in self.tracked_programs:
-            self.label.setText("already+")
-        else:
-            self.tracked_programs[current_program_exe] = current_program.name()
-            self.label.setText("added")
+            if current_program_exe in self.tracked_programs:
+                self.label.setText("already+")
+            else:
+                self.tracked_programs[current_program_exe] = current_program.name()
+                self.change_background_color(self.active_color)
+                self.label.setText("added")
 
     def remove_program(self) -> None:
-        current_program: psutil.Process | None = self.get_active_program()
-        if current_program is None or self.is_self_focused():
-            return
-        current_program_exe: str = current_program.exe()
+        with QMutexLocker(self.lock):
+            current_program: psutil.Process | None = self.get_active_program()
+            if current_program is None or self.is_self_focused():
+                return
+            current_program_exe: str = current_program.exe()
 
-        if current_program_exe in self.tracked_programs:
-            self.config.remove_option("PROGRAMS", current_program_exe)
-            self.label.setText("removed")
-        else:
-            self.label.setText("already-")
+            if current_program_exe in self.tracked_programs:
+                self.config.remove_option("PROGRAMS", current_program_exe)
+                self.change_background_color(self.inactive_color)
+                self.label.setText("removed")
+            else:
+                self.label.setText("already-")
 
     def add_program_mouse(self) -> None:
         self.wait_to_add_program = True
@@ -456,14 +463,14 @@ class MainWindow(QMainWindow):
         self.hours: int = int(previous_time[0])
         self.minutes: int = int(previous_time[1])
         self.seconds: int = int(previous_time[2])
-        self.update_label()
+        self.update_time_display()
 
     def reset_time(self) -> None:
         self.save_data()
         self.hours: int = 0
         self.minutes: int = 0
         self.seconds: int = 0
-        self.update_label()
+        self.update_time_display()
 
     def show_alert(self, message):
         # Create the QMessageBox
@@ -492,7 +499,7 @@ class MainWindow(QMainWindow):
     def checkbox_was_toggled(self, checked: bool) -> None:
         self.hide_time: bool = checked
         self.config["OPTIONS"]["hide_time"] = str(self.hide_time)
-        self.update_label()
+        self.update_time_display()
 
     def click_handler(self) -> None:
         if self.wait_to_add_program is True:
