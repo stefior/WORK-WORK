@@ -142,6 +142,8 @@ class MainWindow(QMainWindow):
         self.active_color = options.get("active_color", "#B0FFFF")
         self.inactive_color = options.get("inactive_color", "#F07070")
         self.idle_timeout: int = options.getint("idle_timeout", 30)
+        self.goal_time: int = options.getint("goal_time", 8)
+        self.goal_time_reached = False
         self.previous_time: str = options.get("previous_time", "00:00:00")
         self.play_sound_on_idle: bool = options.getboolean("play_sound_on_idle", False)
         self.show_border_on_idle: bool = options.getboolean(
@@ -171,7 +173,6 @@ class MainWindow(QMainWindow):
         timer: QTimer = QTimer(self)
         timer.timeout.connect(self.update_time)
         timer.start(1000)
-        self.goal_time_reached = False
 
         self.current_time: str = "--:--:--" if self.hide_time else "00:00:00"
         self.label: QLabel = QLabel(self.current_time, self)
@@ -299,14 +300,13 @@ class MainWindow(QMainWindow):
                     self.minutes = 0
                     self.seconds = 0
 
-                # Temporarily hardcoded alert for work time goal
                 if (
-                    self.hours == 10
+                    self.hours == self.goal_time
                     and self.minutes == 0
                     and self.seconds <= 2
                     and self.goal_time_reached == False
                 ):
-                    self.show_alert("Workday complete!")
+                    self.show_alert("Work goal reached!")
                     self.goal_time_reached = True
 
             elif self.windowTitle() != "WORK WORK":
@@ -328,13 +328,17 @@ class MainWindow(QMainWindow):
         idle_timeout_item: QAction = self.menu.addAction(
             f"Timeout: {self.idle_timeout}"
         )
+        idle_timeout_item.triggered.connect(self.set_idle_timeout)
+
+        goal_time_item: QAction = self.menu.addAction(f"Goal time: {self.goal_time} hours")
+        goal_time_item.triggered.connect(self.set_goal_time)
+
         sound_state: str = "on" if self.play_sound_on_idle else "off"
         toggle_idle_sound_item: QAction = self.menu.addAction(
             f"Idle indicator sound: {sound_state}"
         )
-        idle_timeout_item.triggered.connect(self.set_idle_timeout)
-
         toggle_idle_sound_item.triggered.connect(self.toggle_idle_sound)
+
         border_state: str = "on" if self.show_border_on_idle else "off"
         toggle_idle_border_item: QAction = self.menu.addAction(
             f"Idle indicator border: {border_state}"
@@ -411,6 +415,26 @@ class MainWindow(QMainWindow):
             new_timeout: int = dialog_box.intValue()
             self.idle_timeout: int = new_timeout
             self.config["OPTIONS"]["idle_timeout"] = str(new_timeout)
+
+    def set_goal_time(self) -> None:
+        dialog_box: QInputDialog = QInputDialog(self)
+
+        # Remove question mark from the title bar
+        dialog_box.setWindowFlags(
+            dialog_box.windowFlags() & ~Qt.WindowContextHelpButtonHint
+            | Qt.WindowCloseButtonHint
+        )
+
+        dialog_box.setInputMode(QInputDialog.IntInput)
+        dialog_box.setIntRange(1, 99)
+        dialog_box.setIntValue(self.goal_time)
+        dialog_box.setLabelText("Enter goal hours:")
+        dialog_box.setWindowTitle("Goal Hours Setting")
+
+        if dialog_box.exec() == QInputDialog.Accepted:
+            new_goal_time: int = dialog_box.intValue()
+            self.goal_time: int = new_goal_time
+            self.config["OPTIONS"]["goal_time"] = str(new_goal_time)
 
     def is_self_focused(self) -> bool:
         if self.isActiveWindow():
