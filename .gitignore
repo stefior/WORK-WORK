@@ -1,3 +1,6 @@
-/build
-/dist
+build
+dist
 *.ini
+venv
+.venv
+__pycache__

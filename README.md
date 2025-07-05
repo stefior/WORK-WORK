@@ -1,25 +1,73 @@
-# Introduction
+# WORK-WORK
 
-This is a Windows program for tracking time spent working more accurately by only tracking time spent in chosen programs and having a set idle timeout.
+A Windows-only productivity tool for accurately tracking time spent working in specific programs with idle detection and customizable alerts.
 
-The program by simple by design because I don't want to overcomplicate my work tracking, but I do want to be confident my time was tracked accurately *enough*.
+<div align="center">
+  <img src="assets/timericon.ico" alt="Work Timer Icon" width="64" height="64">
+</div>
 
-It is inspired by the AutoHothey script by Lemon Demon (Niel Cicierga) found [here](https://web.archive.org/web/20160422221339/http://neilblr.com/post/58757345346). I was modifying that script to better suit my needs, but I ended up just remaking it with Python instead after the additions and modifications I wanted to make grew as I used it over time.
+## Background
+
+This program is inspired by the AutoHotkey script by Lemon Demon (Neil Cicierega) found [here](https://web.archive.org/web/20160422221339/http://neilblr.com/post/58757345346). It originally started as modifications to that script, but grew into a complete Python rewrite to better suit evolving needs.
+## Features
+
+- **Automatic Time Tracking**: Only tracks time when you're actively working in designated programs
+- **Idle Detection**: Pauses tracking when the system is idle beyond a configurable timeout
+- **Visual Indicators**: Color-coded interface (cyan for active, red for inactive) with optional border alerts
+- **Goal Setting**: Set daily work goals with notifications when reached
+- **Customizable Shortcuts**: Configure global hotkeys for adding/removing programs
+- **Audio Alerts**: Optional sound notifications for idle states
+- **Time Management**: Save, restore, and manually adjust tracked time
+- **Persistent Settings**: Remembers window position, tracked programs, and preferences
 
 ## Installation
 
 An exe made using `pyinstaller` is in the Releases section, but Windows Defender thinks its malware, which seems to be a common issue. I tried signing it with a self-generated certificate, but to no avail.
 
-If you'd like to build the exe from source, you can install the dependencies with `pip install keyboard psutil simpleaudio pyqt5 pyqt5-tools pypiwin32`, then run `pyinstaller main.spec`. The exe will be in the project's `./dist` directory.
+If you'd like to build it from source, you can follow these steps:
+1. Create a virtual environment: `python -m venv .venv`
+2. Activate the virtual environment: `.\.venv\Scripts\activate`
+3. Install dependencies: `pip install -r requirements.txt`
+4. Run the application: `pyinstaller main.spec`
+5. The generated exe will be in the dist folder
 
-## Default global hotkeys
+## Usage
 
-- **A**dd program: Ctrl+Win+Alt+A
-- **R**emove program: Ctrl+Win+Alt+R
+### Interface Overview
 
-## Things to keep in mind
+The application displays as a compact timer window that stays on top of other windows. The interface shows:
+- **Time Display**: Current tracked time in HH:MM:SS format
+- **MENU Button**: Access to all settings and options
+- **Hide Checkbox**: Toggle to hide/show the time display
+- **Color Coding**: Cyan background when actively tracking, red when inactive
 
-- If you try to add a program that was already added or remove a program that isn't in the list, the screen will say "already+" instead of "added" or "already-" instead of "removed".
-- It tracks the programs based on their executable path, so if you change where a program is in your file system, you'll need to use the Add Program button again. You may also need to re-add the program if updating it changes its path. (This is done because some programs have the same exe name, using the window's handle doesn't track any child windows for the program, using the class name of the window's handle conflates all electron applications, and using the title wouldn't work because it can change for certain programs.)
-- The Alt+Tab switcher, the Win+Tab switcher, the desktop, and the task bar are all considered as part of the file explorer. So, if it goes red for a second while doing something like Alt+Tabbing, it's simply because you don't have the file explorer (explorer.exe) as a tracked program.
-- If you'd like to still have it on your screen without covering up any programs (e.g. covering part of the last line in your terminal), what I did is increase the height of the taskbar on my secondary monitor and put the program at the bottom right of the screen.
+### Default Global Hotkeys
+
+- **Add program**: Win+Shift+=
+- **Remove program**: Win+Shift+-
+
+### Menu Options
+
+- **Add/Remove Programs**: Manage which programs are tracked
+- **Timeout Settings**: Configure idle timeout
+- **Goal Time**: Set daily work goals with HH:MM:SS format
+- **Hotkey Configuration**: Customize global shortcuts
+- **Audio Settings**: Toggle idle indicator sound
+- **Border Alerts**: Show screen borders when not working
+- **Time Management**: Reset, resume, or manually adjust current time
+
+## How It Works
+
+### Program Tracking
+
+The timer automatically detects when you're working in tracked programs by:
+1. Polling the active window at a set interval
+2. Checking if the current program is in your tracked list
+3. Starting/stopping the timer based on program focus
+4. Pausing when the system is idle beyond the configured timeout
+
+## Important Notes
+
+- **Program Detection**: Tracks programs by executable path, updating programs can require re-adding them sometimes
+- **System Integration**: Alt+Tab, Win+Tab, desktop, and taskbar are considered part of File Explorer (explorer.exe), so it is set as tracked by default
+- **Data Persistence**: Settings, window position, and previous time are automatically saved

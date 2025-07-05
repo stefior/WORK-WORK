@@ -1,0 +1,8 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource>
+        <file alias="alert_sound">assets/alert.wav</file>
+        <file alias="digital_font">assets/digital-7-mono.ttf</file>
+        <file alias="timer_icon">assets/timericon.ico</file>
+    </qresource>
+</RCC>
