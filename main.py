@@ -1110,7 +1110,7 @@ class MainWindow(QMainWindow):
     def add_program(self) -> None:
         """Add the currently active program to the tracked programs list."""
         exe = self.get_active_exe()
-        if not exe or self.isActiveWindow():
+        if not exe or self.is_self_focused():
             return
         if self.config.is_program_tracked(exe):
             self.show_message("already+")
@@ -1124,7 +1124,7 @@ class MainWindow(QMainWindow):
     def remove_program(self) -> None:
         """Remove the currently active program from the tracked programs list."""
         exe = self.get_active_exe()
-        if not exe or self.isActiveWindow():
+        if not exe or self.is_self_focused():
             return
         if self.config.is_program_tracked(exe):
             self.config.remove_tracked_program(exe)
