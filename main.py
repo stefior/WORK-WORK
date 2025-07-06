@@ -13,7 +13,6 @@ from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
     QDialog,
-    QDialogButtonBox,
     QHBoxLayout,
     QInputDialog,
     QLabel,
@@ -119,7 +118,7 @@ class CustomTimeEdit(QWidget):
 
 class ShortcutInputWidget(QLineEdit):
     """Custom widget for capturing keyboard shortcuts."""
-    
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setPlaceholderText("Press a key combination...")
@@ -127,9 +126,10 @@ class ShortcutInputWidget(QLineEdit):
         self.current_modifiers = set()
         self.current_key = None
         self.shortcut_captured = False
-        
+
         # Set initial styling
-        self.setStyleSheet("""
+        self.setStyleSheet(
+            """
             QLineEdit {
                 padding: 8px;
                 font-size: 12px;
@@ -140,12 +140,13 @@ class ShortcutInputWidget(QLineEdit):
                 border: 2px solid hsl(204, 100%, 40%);
                 outline: none;
             }
-        """)
-        
+        """
+        )
+
     def keyPressEvent(self, event: QKeyEvent) -> None:
         """Capture key press events to build shortcut string."""
         key = event.key()
-        
+
         # Handle Enter key specially - accept the dialog
         if key in [Qt.Key.Key_Enter, Qt.Key.Key_Return]:
             if self.parent():
@@ -155,7 +156,7 @@ class ShortcutInputWidget(QLineEdit):
                 if dialog:
                     dialog.accept()
             return
-        
+
         # Handle Escape key specially - reject the dialog
         if key == Qt.Key.Key_Escape:
             if self.parent():
@@ -165,14 +166,19 @@ class ShortcutInputWidget(QLineEdit):
                 if dialog:
                     dialog.reject()
             return
-        
+
         # Handle modifier keys
-        if key in [Qt.Key.Key_Control, Qt.Key.Key_Alt, Qt.Key.Key_Shift, Qt.Key.Key_Meta]:
+        if key in [
+            Qt.Key.Key_Control,
+            Qt.Key.Key_Alt,
+            Qt.Key.Key_Shift,
+            Qt.Key.Key_Meta,
+        ]:
             # Only update modifiers if we haven't captured a shortcut yet
             if not self.shortcut_captured:
                 modifiers = event.modifiers()
                 self.current_modifiers.clear()
-                
+
                 if modifiers & Qt.KeyboardModifier.ControlModifier:
                     self.current_modifiers.add("ctrl")
                 if modifiers & Qt.KeyboardModifier.AltModifier:
@@ -181,17 +187,17 @@ class ShortcutInputWidget(QLineEdit):
                     self.current_modifiers.add("shift")
                 if modifiers & Qt.KeyboardModifier.MetaModifier:
                     self.current_modifiers.add("win")
-                
+
                 self.current_key = None  # Clear any previous key
                 self._update_display()
             return
-            
+
         # Handle regular keys - this captures the shortcut
         if key != Qt.Key.Key_unknown:
             # Get current modifiers at the time of key press
             modifiers = event.modifiers()
             self.current_modifiers.clear()
-            
+
             if modifiers & Qt.KeyboardModifier.ControlModifier:
                 self.current_modifiers.add("ctrl")
             if modifiers & Qt.KeyboardModifier.AltModifier:
@@ -200,20 +206,25 @@ class ShortcutInputWidget(QLineEdit):
                 self.current_modifiers.add("shift")
             if modifiers & Qt.KeyboardModifier.MetaModifier:
                 self.current_modifiers.add("win")
-            
+
             self.current_key = self._get_key_name(key)
             self.shortcut_captured = True
             self._update_display()
-            
+
     def keyReleaseEvent(self, event: QKeyEvent) -> None:
         """Handle key release events."""
         key = event.key()
-        
+
         # Only update display on modifier release if shortcut not captured yet
-        if not self.shortcut_captured and key in [Qt.Key.Key_Control, Qt.Key.Key_Alt, Qt.Key.Key_Shift, Qt.Key.Key_Meta]:
+        if not self.shortcut_captured and key in [
+            Qt.Key.Key_Control,
+            Qt.Key.Key_Alt,
+            Qt.Key.Key_Shift,
+            Qt.Key.Key_Meta,
+        ]:
             modifiers = event.modifiers()
             self.current_modifiers.clear()
-            
+
             if modifiers & Qt.KeyboardModifier.ControlModifier:
                 self.current_modifiers.add("ctrl")
             if modifiers & Qt.KeyboardModifier.AltModifier:
@@ -222,56 +233,78 @@ class ShortcutInputWidget(QLineEdit):
                 self.current_modifiers.add("shift")
             if modifiers & Qt.KeyboardModifier.MetaModifier:
                 self.current_modifiers.add("win")
-            
+
             self.current_key = None  # Clear any previous key
             self._update_display()
-    
+
     def _get_key_name(self, key: Qt.Key) -> str:
         """Convert Qt key to string representation."""
         key_map = {
-            Qt.Key.Key_F1: "f1", Qt.Key.Key_F2: "f2", Qt.Key.Key_F3: "f3", Qt.Key.Key_F4: "f4",
-            Qt.Key.Key_F5: "f5", Qt.Key.Key_F6: "f6", Qt.Key.Key_F7: "f7", Qt.Key.Key_F8: "f8",
-            Qt.Key.Key_F9: "f9", Qt.Key.Key_F10: "f10", Qt.Key.Key_F11: "f11", Qt.Key.Key_F12: "f12",
-            Qt.Key.Key_Space: "space", Qt.Key.Key_Enter: "enter", Qt.Key.Key_Return: "enter",
-            Qt.Key.Key_Tab: "tab", Qt.Key.Key_Backspace: "backspace", Qt.Key.Key_Delete: "delete",
-            Qt.Key.Key_Insert: "insert", Qt.Key.Key_Home: "home", Qt.Key.Key_End: "end",
-            Qt.Key.Key_PageUp: "pageup", Qt.Key.Key_PageDown: "pagedown",
-            Qt.Key.Key_Up: "up", Qt.Key.Key_Down: "down", Qt.Key.Key_Left: "left", Qt.Key.Key_Right: "right",
-            Qt.Key.Key_Escape: "escape", Qt.Key.Key_Plus: "=", Qt.Key.Key_Minus: "-",
-            Qt.Key.Key_Equal: "=", Qt.Key.Key_Underscore: "-"
+            Qt.Key.Key_F1: "f1",
+            Qt.Key.Key_F2: "f2",
+            Qt.Key.Key_F3: "f3",
+            Qt.Key.Key_F4: "f4",
+            Qt.Key.Key_F5: "f5",
+            Qt.Key.Key_F6: "f6",
+            Qt.Key.Key_F7: "f7",
+            Qt.Key.Key_F8: "f8",
+            Qt.Key.Key_F9: "f9",
+            Qt.Key.Key_F10: "f10",
+            Qt.Key.Key_F11: "f11",
+            Qt.Key.Key_F12: "f12",
+            Qt.Key.Key_Space: "space",
+            Qt.Key.Key_Enter: "enter",
+            Qt.Key.Key_Return: "enter",
+            Qt.Key.Key_Tab: "tab",
+            Qt.Key.Key_Backspace: "backspace",
+            Qt.Key.Key_Delete: "delete",
+            Qt.Key.Key_Insert: "insert",
+            Qt.Key.Key_Home: "home",
+            Qt.Key.Key_End: "end",
+            Qt.Key.Key_PageUp: "pageup",
+            Qt.Key.Key_PageDown: "pagedown",
+            Qt.Key.Key_Up: "up",
+            Qt.Key.Key_Down: "down",
+            Qt.Key.Key_Left: "left",
+            Qt.Key.Key_Right: "right",
+            Qt.Key.Key_Escape: "escape",
+            Qt.Key.Key_Plus: "=",
+            Qt.Key.Key_Minus: "-",
+            Qt.Key.Key_Equal: "=",
+            Qt.Key.Key_Underscore: "-",
         }
-        
+
         if key in key_map:
             return key_map[key]
-        
+
         # Handle regular characters
         if 32 <= key <= 126:  # Printable ASCII
             return chr(key).lower()
-        
+
         return f"key_{key}"
-    
+
     def _update_display(self) -> None:
         """Update the display text based on current modifiers and key."""
         parts = sorted(self.current_modifiers)
         if self.current_key:
             parts.append(self.current_key)
-        
+
         if parts:
             self.setText("+".join(parts))
         else:
             self.setText("")
-    
+
     def get_shortcut(self) -> str:
         """Get the current shortcut string."""
         return self.text()
-    
+
     def set_shortcut(self, shortcut: str) -> None:
         """Set the shortcut string."""
         self.setText(shortcut)
         self.current_modifiers.clear()
         self.current_key = None
         self.shortcut_captured = bool(shortcut)
-        
+
         if shortcut:
             parts = shortcut.lower().split("+")
             for part in parts[:-1]:
@@ -279,7 +312,7 @@ class ShortcutInputWidget(QLineEdit):
                     self.current_modifiers.add(part)
             if parts:
                 self.current_key = parts[-1]
-    
+
     def clear_shortcut(self) -> None:
         """Clear the current shortcut and allow new input."""
         self.setText("")
@@ -290,7 +323,7 @@ class ShortcutInputWidget(QLineEdit):
 
 class ShortcutInputDialog(QDialog):
     """Dialog for inputting keyboard shortcuts."""
-    
+
     def __init__(self, parent=None, title="Set Shortcut", current_shortcut=""):
         super().__init__(parent)
         self.setWindowTitle(title)
@@ -298,45 +331,45 @@ class ShortcutInputDialog(QDialog):
             self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint
             | Qt.WindowType.WindowCloseButtonHint
         )
-        
+
         layout = QVBoxLayout()
-        
+
         # Add instruction label
         instruction_label = QLabel("Press a key combination to set the shortcut:")
         layout.addWidget(instruction_label)
-        
+
         # Add shortcut input widget
         self.shortcut_input = ShortcutInputWidget()
         self.shortcut_input.set_shortcut(current_shortcut)
         layout.addWidget(self.shortcut_input)
-        
+
         # Add button layout (all buttons on same line)
         button_layout = QHBoxLayout()
-        
+
         # Add clear button
         clear_button = QPushButton("Clear")
         clear_button.clicked.connect(self.shortcut_input.clear_shortcut)
         button_layout.addWidget(clear_button)
-        
+
         # Add spacer to push OK/Cancel to the right
         button_layout.addStretch()
-        
+
         # Add OK and Cancel buttons
         ok_button = QPushButton("OK")
         ok_button.clicked.connect(self.accept)
         cancel_button = QPushButton("Cancel")
         cancel_button.clicked.connect(self.reject)
-        
+
         button_layout.addWidget(ok_button)
         button_layout.addWidget(cancel_button)
-        
+
         layout.addLayout(button_layout)
-        
+
         self.setLayout(layout)
-        
+
         # Focus the input widget
         self.shortcut_input.setFocus()
-    
+
     def get_shortcut(self) -> str:
         """Get the entered shortcut."""
         return self.shortcut_input.get_shortcut()
@@ -379,7 +412,7 @@ class MainWindow(QMainWindow):
 
         # Initialize the configuration manager
         self.config = ConfigManager("qsettings.ini")
-        
+
         # Save previous session to history if it exists
         if self.config.previous_time > 0:
             self.config.add_time_to_history(self.config.previous_time)
@@ -411,7 +444,7 @@ class MainWindow(QMainWindow):
         self.border_windows: BorderWindows = BorderWindows()
         self.wait_to_add_program: bool = False
         self.wait_to_remove_program: bool = False
-        
+
         # Message display system
         self.showing_message: bool = False
         self.message_timer: QTimer = QTimer(self)
@@ -435,12 +468,12 @@ class MainWindow(QMainWindow):
         self.tick.setTimerType(Qt.TimerType.PreciseTimer)
         self.tick.timeout.connect(self.on_update)
         self.tick.start(200)  # 5 fps UI refresh
-        
+
         # Timer for polling active window every 200ms
         self.active_window_timer = QTimer(self)
         self.active_window_timer.timeout.connect(self.check_active_window)
         self.active_window_timer.start(200)
-        
+
         # Timer for periodic saving every 30 seconds to prevent data loss
         self.save_timer = QTimer(self)
         self.save_timer.timeout.connect(self.save_data)
@@ -459,16 +492,16 @@ class MainWindow(QMainWindow):
 
         self.menu: QMenu = QMenu()
         self.menu.aboutToShow.connect(self.update_menu)
-        
+
         # Set menu stylesheet for better keyboard navigation visibility
         # Detect if system is in dark mode
         app = QGuiApplication.instance()
         is_dark_mode = app.styleHints().colorScheme() == Qt.ColorScheme.Dark
-        
+
         if is_dark_mode:
             # Dark theme: black background, white text
             menu_bg = "black"
-            menu_border = "white" 
+            menu_border = "white"
             item_bg = "black"
             item_color = "white"
             disabled_color = "hsl(0, 0%, 47%)"
@@ -477,12 +510,13 @@ class MainWindow(QMainWindow):
             # Light theme: white background, black text
             menu_bg = "white"
             menu_border = "black"
-            item_bg = "white" 
+            item_bg = "white"
             item_color = "black"
             disabled_color = "hsl(0, 0%, 53%)"
             separator_color = "hsl(0, 0%, 80%)"
-        
-        self.menu.setStyleSheet(f"""
+
+        self.menu.setStyleSheet(
+            f"""
             QMenu {{
                 background-color: {menu_bg};
                 border: 1px solid {menu_border};
@@ -512,7 +546,8 @@ class MainWindow(QMainWindow):
                 background-color: {separator_color};
                 margin: 4px 8px;
             }}
-        """)
+        """
+        )
         menu_button: QPushButton = QPushButton("MENU")
         menu_button.setStyleSheet(
             f"""QPushButton {{
@@ -540,7 +575,8 @@ class MainWindow(QMainWindow):
         checkbox.clicked.connect(self.checkbox_was_toggled)
         checkbox.setChecked(self.hide_time)
         checkbox.setToolTip("Toggle time visibility")
-        checkbox.setStyleSheet("""
+        checkbox.setStyleSheet(
+            """
             QCheckBox::indicator {
                 background-color: white;
                 border: 1px solid black;
@@ -551,7 +587,8 @@ class MainWindow(QMainWindow):
             QCheckBox:focus {
                 outline: 1px solid black;
             }
-        """)
+        """
+        )
 
         layout: QHBoxLayout = QHBoxLayout()
         layout.setAlignment(Qt.AlignmentFlag.AlignRight)
@@ -573,18 +610,22 @@ class MainWindow(QMainWindow):
 
     def check_active_window(self):
         """Check the currently active window and update tracking state.
-        
+
         Called every 200ms to poll the active window and determine if it's
         a tracked program. Updates the foreground_is_tracked state.
         Also handles program add/remove operations when waiting.
         """
         exe = self.get_active_exe()
-        self.foreground_is_tracked = exe and self.config.is_program_tracked(exe) and not self.is_self_focused()
-        
+        self.foreground_is_tracked = (
+            exe and self.config.is_program_tracked(exe) and not self.is_self_focused()
+        )
+
         # Handle program add/remove operations
-        if (self.wait_to_add_program or self.wait_to_remove_program) and not self.is_self_focused():
+        if (
+            self.wait_to_add_program or self.wait_to_remove_program
+        ) and not self.is_self_focused():
             self.click_handler()
-        
+
         self.update_time_display()
 
     def on_update(self) -> None:
@@ -641,10 +682,10 @@ class MainWindow(QMainWindow):
         """
         self.config.save_window_geometry(self.saveGeometry())
         self.config.save_previous_time(int(self.elapsed_seconds))
-    
+
     def save_current_session(self) -> None:
         """Save the current session to history if it has meaningful time.
-        
+
         This method captures the current total time (elapsed + active timer)
         and saves it to the history if it's greater than 0. This should be
         called before manual time changes, resets, or app closure.
@@ -653,7 +694,7 @@ class MainWindow(QMainWindow):
         total_time = self.elapsed_seconds
         if self.active_timer.isValid():
             total_time += self.active_timer.nsecsElapsed() / 1e9
-        
+
         # Save to history if it's meaningful (> 0)
         if total_time > 0:
             self.config.add_time_to_history(int(total_time))
@@ -676,11 +717,11 @@ class MainWindow(QMainWindow):
         """
         # Save current session to history before exiting
         self.save_current_session()
-        
+
         # Hide border windows to prevent them from staying visible
         if self.border_windows.isVisible():
             self.border_windows.hide()
-            
+
         self.save_data()
         self.hotkeys.unregister_all()
         print(exception_type, value, traceback)
@@ -739,7 +780,7 @@ class MainWindow(QMainWindow):
 
     def show_message(self, text: str, duration: int = 1000) -> None:
         """Display a temporary message in the timer display area.
-        
+
         Args:
             text: The message text to display
             duration: Duration in milliseconds to show the message (default: 1000ms)
@@ -780,10 +821,12 @@ class MainWindow(QMainWindow):
 
         # Shortcut settings
         self.menu.addAction(
-            f"Add program shortcut: {self.config.add_program_hotkey}", self.set_add_program_shortcut
+            f"Add program shortcut: {self.config.add_program_hotkey}",
+            self.set_add_program_shortcut,
         )
         self.menu.addAction(
-            f"Remove program shortcut: {self.config.remove_program_hotkey}", self.set_remove_program_shortcut
+            f"Remove program shortcut: {self.config.remove_program_hotkey}",
+            self.set_remove_program_shortcut,
         )
 
         # Toggleable options with checkmarks
@@ -802,12 +845,14 @@ class MainWindow(QMainWindow):
         # Timer history submenu
         history_menu = self.menu.addMenu("Resume a previous time")
         history = self.config.get_time_history()
-        
+
         if history:
             for i, time_seconds in enumerate(history):
                 h, m, s = self.convert_seconds_to_hms(time_seconds)
                 time_text = f"{h:02}:{m:02}:{s:02}"
-                history_menu.addAction(time_text, lambda t=time_seconds: self.resume_time_from_history(t))
+                history_menu.addAction(
+                    time_text, lambda t=time_seconds: self.resume_time_from_history(t)
+                )
         else:
             # Show disabled item when no history
             no_history_action = history_menu.addAction("No previous sessions")
@@ -987,7 +1032,7 @@ class MainWindow(QMainWindow):
         if dialog.exec():
             # Save current session before changing time
             self.save_current_session()
-            
+
             h, m, s = time_edit.get_time()
             self.elapsed_seconds = h * 3600 + m * 60 + s
             self.update_time_display()
@@ -1008,18 +1053,18 @@ class MainWindow(QMainWindow):
     def set_add_program_shortcut(self) -> None:
         """Open a dialog to set the add program shortcut."""
         dialog = ShortcutInputDialog(
-            self, 
-            "Add Program Shortcut", 
-            self.config.add_program_hotkey
+            self, "Add Program Shortcut", self.config.add_program_hotkey
         )
-        
+
         if dialog.exec() == QDialog.DialogCode.Accepted:
             new_shortcut: str = dialog.get_shortcut().strip()
             if new_shortcut:
                 old_shortcut = self.config.add_program_hotkey
                 try:
                     # Update hotkey registration - replace just the add program hotkey
-                    self.hotkeys.replace_hotkey(old_shortcut, new_shortcut, self.add_program)
+                    self.hotkeys.replace_hotkey(
+                        old_shortcut, new_shortcut, self.add_program
+                    )
                     self.config.set_add_program_hotkey(new_shortcut)
                 except RuntimeError as e:
                     # Show error message to user
@@ -1033,18 +1078,18 @@ class MainWindow(QMainWindow):
     def set_remove_program_shortcut(self) -> None:
         """Open a dialog to set the remove program shortcut."""
         dialog = ShortcutInputDialog(
-            self, 
-            "Remove Program Shortcut", 
-            self.config.remove_program_hotkey
+            self, "Remove Program Shortcut", self.config.remove_program_hotkey
         )
-        
+
         if dialog.exec() == QDialog.DialogCode.Accepted:
             new_shortcut: str = dialog.get_shortcut().strip()
             if new_shortcut:
                 old_shortcut = self.config.remove_program_hotkey
                 try:
                     # Update hotkey registration - replace just the remove program hotkey
-                    self.hotkeys.replace_hotkey(old_shortcut, new_shortcut, self.remove_program)
+                    self.hotkeys.replace_hotkey(
+                        old_shortcut, new_shortcut, self.remove_program
+                    )
                     self.config.set_remove_program_hotkey(new_shortcut)
                 except RuntimeError as e:
                     # Show error message to user
@@ -1118,27 +1163,24 @@ class MainWindow(QMainWindow):
         """Restore the previously saved elapsed time."""
         # Save current session before changing time
         self.save_current_session()
-        
+
         self.elapsed_seconds = self.config.previous_time
         self.update_time_display()
-    
+
     def resume_time_from_history(self, time_seconds: int) -> None:
         """Resume a specific time from the history.
-        
+
         Args:
             time_seconds: The time in seconds to resume to
         """
         # Save current session before changing time
         self.save_current_session()
-        
+
         self.elapsed_seconds = time_seconds
         self.update_time_display()
-        
+
         # Check if goal has been reached with the resumed time
-        if (
-            self.elapsed_seconds >= self.config.goal_time
-            and self.config.goal_time > 0
-        ):
+        if self.elapsed_seconds >= self.config.goal_time and self.config.goal_time > 0:
             self.goal_time_reached = True
         else:
             self.goal_time_reached = False
@@ -1155,12 +1197,12 @@ class MainWindow(QMainWindow):
         total = self.elapsed_seconds
         if self.active_timer.isValid():
             total += self.active_timer.nsecsElapsed() / 1e9
-        
+
         # Only reset if current time is not already at 0
         if total > 0:
             # Save current session to history before resetting
             self.save_current_session()
-            
+
             self.save_data()
             self.elapsed_seconds = 0
             self.goal_time_reached = False
@@ -1262,7 +1304,7 @@ class MainWindow(QMainWindow):
         """
         # Save current session to history before closing
         self.save_current_session()
-        
+
         # Hide border windows first to prevent them from staying visible
         if self.border_windows.isVisible():
             self.border_windows.hide()

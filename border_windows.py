@@ -5,22 +5,27 @@ from PyQt6.QtWidgets import QWidget
 
 class BorderWindow(QWidget):
     """A frameless window that draws a colored border around the entire screen.
-    
+
     This widget is used to create a visual indicator around the screen edges,
     typically used to indicate when the system has detected user idleness.
-    
+
     The window is completely transparent except for the border, and stays
     on top of all other windows.
     """
+
     def __init__(self, geometry: QRect) -> None:
         """Initialize the border window with the specified screen geometry.
-        
+
         Args:
             geometry: The QRect defining the screen area to surround with a border
         """
         super().__init__()
         self.setGeometry(geometry)
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Tool
+        )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.show()
 

@@ -76,7 +76,7 @@ class ConfigManager:
 
         # Load tracked programs
         self.tracked_programs: dict[str, str] = self._load_tracked_programs()
-        
+
         # Load time history
         self.time_history: list[int] = self._load_time_history()
 
@@ -89,13 +89,13 @@ class ConfigManager:
         self.settings.beginGroup("Programs")
         programs = {key: self.settings.value(key) for key in self.settings.childKeys()}
         self.settings.endGroup()
-        
+
         # Add explorer.exe as default tracked program for new users
         if not programs:
             explorer_path = "C:\\Windows\\explorer.exe"
             programs[explorer_path] = "explorer.exe"
             self.settings.setValue("Programs/" + explorer_path, "explorer.exe")
-        
+
         return programs
 
     def save_window_geometry(self, geometry: QByteArray) -> None:
@@ -198,25 +198,25 @@ class ConfigManager:
 
     def set_add_program_hotkey(self, hotkey: str) -> None:
         """Set the add program hotkey.
-        
+
         Args:
             hotkey: The new hotkey string
         """
         self.add_program_hotkey = hotkey
         self.settings.setValue("Options/add_program_hotkey", hotkey)
-        
+
     def set_remove_program_hotkey(self, hotkey: str) -> None:
         """Set the remove program hotkey.
-        
+
         Args:
             hotkey: The new hotkey string
         """
         self.remove_program_hotkey = hotkey
         self.settings.setValue("Options/remove_program_hotkey", hotkey)
-    
+
     def _load_time_history(self) -> list[int]:
         """Load the time history from settings.
-        
+
         Returns:
             A list of previous times in seconds (max 5 entries)
         """
@@ -225,37 +225,39 @@ class ConfigManager:
             history = json.loads(history_str)
             # Ensure it's a list of integers and limit to 5 entries
             if isinstance(history, list):
-                return [int(t) for t in history if isinstance(t, (int, float)) and t > 0][-5:]
+                return [
+                    int(t) for t in history if isinstance(t, (int, float)) and t > 0
+                ][-5:]
             return []
         except (json.JSONDecodeError, ValueError, TypeError):
             return []
-    
+
     def add_time_to_history(self, seconds: int) -> None:
         """Add a time to the history, maintaining max 5 entries.
-        
+
         Args:
             seconds: The time in seconds to add to history
         """
         if seconds <= 0:
             return  # Don't save 0 or negative times
-        
+
         # Remove duplicate if it exists
         if seconds in self.time_history:
             self.time_history.remove(seconds)
-        
+
         # Add new time at the end
         self.time_history.append(seconds)
-        
+
         # Keep only the last 5 entries
         if len(self.time_history) > 5:
             self.time_history = self.time_history[-5:]
-        
+
         # Save to settings
         self.settings.setValue("Options/time_history", json.dumps(self.time_history))
-    
+
     def get_time_history(self) -> list[int]:
         """Get the current time history.
-        
+
         Returns:
             A list of previous times in seconds (newest first)
         """
